@@ -1,116 +1,187 @@
 # 📉 Economic Shock Impact Analyzer
 ### ML-Powered Business Simulation with Monte Carlo Analysis
 
----
-
-## 📌 Project Overview
-
-The **Economic Shock Impact Analyzer** is an AI-powered simulation tool that predicts how macro-level economic events — like inflation spikes, interest rate changes, or demand shocks — affect a business's revenue, costs, and profit.
-
-It connects **real-world macroeconomic data** with **machine learning** and **Monte Carlo simulation** to give businesses a range of possible outcomes under economic stress — not just one fixed answer.
-
-> **"If inflation rises by 5%, what happens to our revenue? What's the worst case? Best case?"**
-> This tool answers exactly that.
+> *"If inflation rises by 5%, what happens to our revenue? What's the worst case? Best case?"*
+> This tool answers exactly that — with real data, machine learning, and probabilistic simulation.
 
 ---
 
-## 🎯 Who Is It For?
+## 🧭 Table of Contents
 
-- Strategy & Business Planning Teams
-- Product Managers (finance, e-commerce, SaaS)
-- Finance Analysts
-- MBA / Economics students doing applied business analysis
-
----
-
-## 🏗️ Project Phases
-
-### Phase 1 — Real Dataset (World Bank API)
-- Fetch live macroeconomic data using the **World Bank API**
-- Indicators: Inflation rate, GDP growth, Interest rate, Unemployment rate
-- Clean and prepare data for modeling
-
-### Phase 2 — ML Model (Regression)
-- Train a **Random Forest / Gradient Boosting** regression model
-- Predict revenue impact % based on macro indicators
-- Evaluate using MAE, RMSE, R²
-
-### Phase 3 — Monte Carlo Simulation
-- Run **1000+ random scenarios** with varying inflation, interest rates
-- Output: probability distribution of revenue impact
-- Results: Best case / Worst case / Most likely outcome + Risk Score
-
-### Phase 4 — Interactive Dashboard
-- Build a **Streamlit** dashboard with sliders, KPI cards, and charts
-- Scenario comparison and side-by-side visualization
-- Deploy on **Streamlit Community Cloud**
+- [Overview](#-overview)
+- [Who Is It For](#-who-is-it-for)
+- [Live Demo](#-live-demo)
+- [Features](#-features)
+- [Project Architecture](#-project-architecture)
+- [Tech Stack](#-tech-stack)
+- [Setup & Installation](#-setup--installation)
+- [Usage Guide](#-usage-guide)
+- [How It Works](#-how-it-works)
+- [Dashboard Preview](#-dashboard-preview)
+- [Roadmap](#-roadmap)
+- [Author](#-author)
 
 ---
 
-## 📁 Project Structure
+## 🔍 Overview
+
+The **Economic Shock Impact Analyzer** is an end-to-end AI simulation tool that models how macro-level economic shocks — inflation spikes, interest rate hikes, demand collapses — ripple through a business's financials.
+
+Unlike simple what-if calculators, this tool combines:
+- 📡 **Real macroeconomic data** from the World Bank API
+- 🤖 **ML regression models** trained on historical macro–business relationships
+- 🎲 **Monte Carlo simulation** (1,000+ scenarios) to quantify uncertainty
+- 📊 **Interactive Streamlit dashboard** for scenario exploration
+
+The output isn't a single answer — it's a **probability distribution** of outcomes, giving decision-makers a realistic range to plan around.
+
+---
+
+## 🎯 Who Is It For
+
+| Persona | Use Case |
+|---|---|
+| 💼 Strategy & Finance Teams | Stress-test revenue forecasts under macro scenarios |
+| 📦 Product Managers | Understand demand sensitivity to economic cycles |
+| 🎓 MBA / Economics Students | Applied macro-business analysis for portfolios |
+| 📈 Financial Analysts | Complement DCF models with probabilistic scenario analysis |
+
+---
+
+## 🚀 Live Demo
+
+> 🌐 **[Launch Dashboard →](https://your-app.streamlit.app)** *(deploy link after Streamlit Cloud setup)*
+
+---
+
+## ✨ Features
+
+- **Real-world data ingestion** — pulls live indicators from the World Bank API (inflation, GDP growth, interest rates, unemployment)
+- **Trained ML model** — Random Forest / Gradient Boosting regression predicts revenue impact % from macro inputs
+- **Monte Carlo engine** — runs 1,000+ randomized scenarios and outputs a full probability distribution
+- **Risk scoring** — assigns a quantified risk score based on volatility of outcomes
+- **Interactive dashboard** — sliders, KPI cards, histograms, heatmaps, and scenario comparison tables
+- **Scenario comparison** — run multiple named scenarios side by side
+
+---
+
+## 🏗 Project Architecture
 
 ```
 economic-shock-analyzer/
 │
 ├── data/
-│   └── macro_data.csv              # Real data from World Bank API
+│   └── macro_data.csv           # Real data fetched from World Bank API
 │
 ├── models/
-│   └── rf_model.pkl                # Saved trained ML model
+│   └── rf_model.pkl             # Serialized trained ML model
 │
 ├── output/
-│   ├── charts/                     # Generated charts and plots
-│   └── results/                    # Simulation results
+│   ├── charts/                  # Saved plots and visualizations
+│   └── results/                 # Monte Carlo simulation results (JSON/CSV)
 │
 ├── analysis/
-│   ├── fetch_data.py               # Phase 1: Pull World Bank data
-│   ├── ml_model.py                 # Phase 2: Train ML model
-│   └── monte_carlo.py              # Phase 3: Run simulations
+│   ├── fetch_data.py            # Phase 1 — Pull & clean World Bank data
+│   ├── ml_model.py              # Phase 2 — Train & evaluate ML model
+│   └── monte_carlo.py           # Phase 3 — Run probabilistic simulations
 │
-├── app.py                          # Phase 4: Streamlit dashboard
-├── requirements.txt                # All dependencies
+├── app.py                       # Phase 4 — Streamlit dashboard
+├── requirements.txt
 └── README.md
+```
+
+**Data flow:**
+
+```
+World Bank API → fetch_data.py → macro_data.csv
+                                       ↓
+                               ml_model.py → rf_model.pkl
+                                       ↓
+                             monte_carlo.py → results/
+                                       ↓
+                                    app.py (dashboard)
 ```
 
 ---
 
 ## 🧰 Tech Stack
 
-| Category | Tool | Purpose |
+| Layer | Tool | Purpose |
 |---|---|---|
-| Language | Python 3 | Core language |
-| Real Data | `wbgapi` | Fetch World Bank macroeconomic data |
-| Data Processing | `pandas`, `numpy` | Clean and manipulate data |
+| Language | Python 3.10+ | Core language |
+| Data Fetching | `wbgapi` | World Bank macroeconomic data |
+| Data Processing | `pandas`, `numpy` | Cleaning, transformations |
 | ML Models | `scikit-learn` | Random Forest / Gradient Boosting regression |
-| Statistics | `scipy` | Monte Carlo simulation & distributions |
-| Dashboard UI | `streamlit` | Interactive web dashboard |
-| Charts | `plotly`, `matplotlib` | Line charts, heatmaps, histograms |
+| Statistics | `scipy` | Distributions and Monte Carlo sampling |
+| Dashboard | `streamlit` | Interactive web UI |
+| Charts | `plotly`, `matplotlib` | Line charts, histograms, heatmaps |
 
 ---
 
-## 📦 Requirements
+## ⚙️ Setup & Installation
 
-Create a file called `requirements.txt` in your root folder with:
+### Prerequisites
+- Python 3.10 or higher
+- `pip` package manager
 
-```
-pandas
-numpy
-scipy
-scikit-learn
-streamlit
-plotly
-matplotlib
-wbgapi
-```
+### 1. Clone the Repository
 
-Install everything with one command:
 ```bash
-pip3 install -r requirements.txt
+git clone https://github.com/Saumya-Mishra-536/Economic-Shock-Impact-Analyzer.git
+cd Economic-Shock-Impact-Analyzer
+```
+
+### 2. (Recommended) Create a Virtual Environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate        # macOS/Linux
+venv\Scripts\activate           # Windows
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
 ```
 
 ---
 
-## 🌍 Real Data Used (World Bank API)
+## 📖 Usage Guide
+
+Run each phase in order:
+
+### Phase 1 — Fetch Real Data
+```bash
+python3 analysis/fetch_data.py
+```
+Downloads macroeconomic indicators from the World Bank API and saves to `data/macro_data.csv`.
+
+### Phase 2 — Train the ML Model
+```bash
+python3 analysis/ml_model.py
+```
+Trains a regression model on historical macro data, evaluates it (MAE, RMSE, R²), and saves the model to `models/rf_model.pkl`.
+
+### Phase 3 — Run Monte Carlo Simulation
+```bash
+python3 analysis/monte_carlo.py
+```
+Runs 1,000+ randomized scenarios and writes results to `output/results/`.
+
+### Phase 4 — Launch the Dashboard
+```bash
+streamlit run app.py
+```
+Opens the interactive dashboard at `http://localhost:8501`.
+
+---
+
+## 🔬 How It Works
+
+### Phase 1 — Real Macroeconomic Data
+
+Data is pulled from the **World Bank Open Data API** using `wbgapi`:
 
 | Indicator | World Bank Code |
 |---|---|
@@ -119,99 +190,57 @@ pip3 install -r requirements.txt
 | Real interest rate (%) | `FR.INR.RINR` |
 | Unemployment rate (%) | `SL.UEM.TOTL.ZS` |
 
----
-
-## 🤖 ML Model Details
+### Phase 2 — ML Model
 
 - **Target:** Predicted Revenue Impact (%)
 - **Features:** Inflation %, Interest Rate %, GDP Growth %, Unemployment %
-- **Models:** Random Forest Regressor, Gradient Boosting Regressor
-- **Evaluation:** MAE, RMSE, R²
-- **Pipeline:** StandardScaler → Model (using sklearn Pipeline)
+- **Pipeline:** `StandardScaler` → `RandomForestRegressor` or `GradientBoostingRegressor`
+- **Evaluation metrics:** MAE, RMSE, R²
+
+The model learns from historical country-level data how macro conditions have historically correlated with business revenue changes.
+
+### Phase 3 — Monte Carlo Simulation
+
+- Samples 1,000+ random combinations of macro inputs (drawn from calibrated distributions)
+- Applies the trained ML model to each scenario
+- Aggregates results into:
+  - 📈 Best case (95th percentile)
+  - 📉 Worst case (5th percentile)
+  - 🎯 Most likely outcome (median)
+  - ⚠️ Risk Score (based on output variance)
+
+### Phase 4 — Dashboard
+
+| Component | Description |
+|---|---|
+| Sidebar sliders | Adjust Inflation %, Interest Rate %, Demand Shock % |
+| KPI cards | Revenue impact, Cost impact, Profit impact |
+| Histogram | Monte Carlo distribution of revenue outcomes |
+| Line chart | Scenario comparisons over time |
+| Heatmap | Risk exposure across macro combinations |
+| Comparison table | Side-by-side named scenario results |
 
 ---
 
-## 🎲 Monte Carlo Simulation
+## 🗺 Roadmap
 
-- Runs **1000 scenarios** with randomly varied macro inputs
-- Each run applies economic formulas to calculate revenue/cost/profit impact
-- Outputs:
-  - Probability distribution of revenue impact
-  - Best case / Worst case / Most likely outcome
-  - Risk score for the business
-
----
-
-## 📊 Dashboard Features
-
-- **Sidebar sliders:** Inflation %, Interest Rate %, Demand Shock %
-- **KPI cards:** Revenue, Costs, Profit impact
-- **Line chart:** Scenario comparisons over time
-- **Histogram:** Monte Carlo outcome distribution
-- **Heatmap:** Risk exposure across scenarios
-- **Table:** Side-by-side scenario comparison
-
----
-
-## ▶️ How to Run
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/your-username/economic-shock-analyzer.git
-cd economic-shock-analyzer
-```
-
-### 2. Install Dependencies
-```bash
-pip3 install -r requirements.txt
-```
-
-### 3. Fetch Real Data
-```bash
-python3 analysis/fetch_data.py
-```
-
-### 4. Train the ML Model
-```bash
-python3 analysis/ml_model.py
-```
-
-### 5. Run Monte Carlo Simulation
-```bash
-python3 analysis/monte_carlo.py
-```
-
-### 6. Launch the Dashboard
-```bash
-streamlit run app.py
-```
-
----
-
-## 🌐 Deployment
-
-Deployed on **Streamlit Community Cloud** (free):
-1. Push code to GitHub
-2. Go to [streamlit.io/cloud](https://streamlit.io/cloud)
-3. Connect your GitHub repo
-4. Click Deploy ✅
-
----
-
-## 📈 Why This Project Stands Out
-
-| Feature | Basic Version | This Version |
-|---|---|---|
-| Data source | Made-up numbers | Real World Bank API |
-| Analysis | Fixed formulas | ML regression model |
-| Uncertainty | Single answer | 1000 Monte Carlo scenarios |
-| Output | Static table | Interactive Streamlit dashboard |
-| Deployment | Localhost only | Live on Streamlit Cloud |
-| **Rating** | 7.5 / 10 | **9 / 10** |
+- [x] World Bank API integration
+- [x] Random Forest / Gradient Boosting ML model
+- [x] Monte Carlo simulation engine
+- [x] Streamlit dashboard with scenario sliders
+- [ ] Sector-specific impact models (retail, SaaS, manufacturing)
+- [ ] Export simulation results to PDF / Excel
+- [ ] Multi-country comparison mode
+- [ ] GPT-powered natural language scenario interpreter
+- [ ] Historical back-testing against actual business data
 
 ---
 
 ## 👩‍💻 Author
 
 **Saumya Mishra**
-Economic Shock Impact Analyzer — Internship Portfolio Project
+Internship Portfolio Project — Economic Shock Impact Analyzer
+
+---
+
+*Built with real data. Powered by ML. Designed for decisions.*
