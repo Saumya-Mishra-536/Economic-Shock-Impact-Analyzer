@@ -1,8 +1,8 @@
 # 📉 Economic Shock Impact Analyzer
 ### ML-Powered Business Simulation with Monte Carlo Analysis
 
-> *"If inflation rises by 5%, what happens to our revenue? What's the worst case? Best case?"*
-> This tool answers exactly that — with real data, machine learning, and probabilistic simulation.
+> *"If oil prices spike 40%, what happens to India's GDP growth? What's the worst case? Best case?"*
+> This tool answers exactly that — with real commodity & macro data, machine learning, and probabilistic simulation.
 
 ---
 
@@ -12,6 +12,7 @@
 - [Who Is It For](#-who-is-it-for)
 - [Live Demo](#-live-demo)
 - [Features](#-features)
+- [Datasets](#-datasets)
 - [Project Architecture](#-project-architecture)
 - [Tech Stack](#-tech-stack)
 - [Setup & Installation](#-setup--installation)
@@ -25,11 +26,11 @@
 
 ## 🔍 Overview
 
-The **Economic Shock Impact Analyzer** is an end-to-end AI simulation tool that models how macro-level economic shocks — inflation spikes, interest rate hikes, demand collapses — ripple through a business's financials.
+The **Economic Shock Impact Analyzer** is an end-to-end AI simulation tool that models how global commodity shocks — oil price spikes, food price collapses, metal price surges — ripple through macroeconomic indicators like GDP growth, inflation, and unemployment, with a focus on **India and emerging economies**.
 
 Unlike simple what-if calculators, this tool combines:
-- 📡 **Real macroeconomic data** from the World Bank API
-- 🤖 **ML regression models** trained on historical macro–business relationships
+- 📡 **Real commodity & macroeconomic data** from AlphaVantage and World Bank (via Kaggle)
+- 🤖 **ML regression models** trained on historical commodity–macro relationships (1980–2023)
 - 🎲 **Monte Carlo simulation** (1,000+ scenarios) to quantify uncertainty
 - 📊 **Interactive Streamlit dashboard** for scenario exploration
 
@@ -42,7 +43,7 @@ The output isn't a single answer — it's a **probability distribution** of outc
 | Persona | Use Case |
 |---|---|
 | 💼 Strategy & Finance Teams | Stress-test revenue forecasts under macro scenarios |
-| 📦 Product Managers | Understand demand sensitivity to economic cycles |
+| 📦 Policy Analysts | Understand sectoral sensitivity to global commodity cycles |
 | 🎓 MBA / Economics Students | Applied macro-business analysis for portfolios |
 | 📈 Financial Analysts | Complement DCF models with probabilistic scenario analysis |
 
@@ -56,12 +57,71 @@ The output isn't a single answer — it's a **probability distribution** of outc
 
 ## ✨ Features
 
-- **Real-world data ingestion** — pulls live indicators from the World Bank API (inflation, GDP growth, interest rates, unemployment)
-- **Trained ML model** — Random Forest / Gradient Boosting regression predicts revenue impact % from macro inputs
+- **Dual dataset pipeline** — combines commodity price shocks (AlphaVantage) with macro impact indicators (World Bank) for a full cause-effect model
+- **Trained ML model** — Random Forest / Gradient Boosting regression predicts macro impact (GDP growth, inflation) from commodity shock inputs
 - **Monte Carlo engine** — runs 1,000+ randomized scenarios and outputs a full probability distribution
 - **Risk scoring** — assigns a quantified risk score based on volatility of outcomes
 - **Interactive dashboard** — sliders, KPI cards, histograms, heatmaps, and scenario comparison tables
-- **Scenario comparison** — run multiple named scenarios side by side
+- **Scenario comparison** — run multiple named scenarios side by side (e.g., "2008 Oil Crash" vs "2022 Ukraine Shock")
+
+---
+
+## 📦 Datasets
+
+This project uses **two Kaggle datasets** that together form a complete shock → impact pipeline:
+
+### 1. 🛢️ Commodity Prices Dataset *(Shock Input)*
+**Source:** AlphaVantage via Kaggle
+**Coverage:** January 1980 – April 2023 (monthly)
+
+| Column | Description |
+|---|---|
+| `WTI` | West Texas Intermediate crude oil price ($/bbl) |
+| `BRENT` | Brent crude oil price ($/bbl) |
+| `NATURAL_GAS` | Natural gas price ($/mmbtu) |
+| `ALUMINUM` | Aluminum price — industrial/metals shock |
+| `CORN` | Corn price — food/agriculture shock |
+| `COTTON` | Cotton price — India's key export commodity |
+| `SUGAR` | Sugar price — India is world's largest producer |
+| `COFFEE` | Coffee price |
+| `ALL_COMMODITIES` | Composite commodity price index |
+
+> This dataset captures every major global shock: 1990 Gulf War oil spike, 2008 commodity supercycle crash, 2020 COVID collapse, 2022 Russia-Ukraine commodity surge.
+
+---
+
+### 2. 🌍 Global Economic Indicators Dataset *(Shock Impact / Output)*
+**Source:** World Bank via Kaggle
+**Coverage:** 2010–2025 (annual, 100+ countries)
+
+| Column | Description |
+|---|---|
+| `country_name` | Full country name (e.g., India, United States) |
+| `country_id` | ISO 2-letter country code (e.g., IN, US) |
+| `year` | Year (2010–2025) |
+| `Inflation (CPI %)` | Annual consumer price inflation |
+| `GDP (Current USD)` | Gross Domestic Product in current USD |
+| `GDP per Capita (Current USD)` | GDP divided by total population |
+| `Unemployment Rate (%)` | Percentage of labor force unemployed |
+| `Interest Rate (Real, %)` | Lending interest rate adjusted for inflation |
+| `Inflation (GDP Deflator, %)` | Inflation based on GDP deflator |
+| `GDP Growth (% Annual)` | Year-over-year GDP growth rate |
+
+---
+
+### 🔗 How the Datasets Connect
+
+```
+Commodity Price Shock        →    Macroeconomic Impact
+(AlphaVantage, 1980–2023)        (World Bank, 2010–2025)
+
+WTI / BRENT spike           →    GDP Growth ↓, Inflation ↑
+ALUMINUM surge              →    Manufacturing sector stress
+COTTON / SUGAR shock        →    India agriculture stress
+ALL_COMMODITIES index       →    Unemployment Rate ↑
+
+Merged working range: 2010–2023 (13 years, resampled to annual)
+```
 
 ---
 
@@ -71,21 +131,22 @@ The output isn't a single answer — it's a **probability distribution** of outc
 economic-shock-analyzer/
 │
 ├── data/
-│   └── macro_data.csv           # Real data fetched from World Bank API
+│   ├── commodity_prices.csv      # AlphaVantage commodity data (1980–2023, monthly)
+│   └── macro_indicators.csv      # World Bank macro data (2010–2025, annual)
 │
 ├── models/
-│   └── rf_model.pkl             # Serialized trained ML model
+│   └── rf_model.pkl              # Serialized trained ML model
 │
 ├── output/
-│   ├── charts/                  # Saved plots and visualizations
-│   └── results/                 # Monte Carlo simulation results (JSON/CSV)
+│   ├── charts/                   # Saved plots and visualizations
+│   └── results/                  # Monte Carlo simulation results (JSON/CSV)
 │
 ├── analysis/
-│   ├── fetch_data.py            # Phase 1 — Pull & clean World Bank data
-│   ├── ml_model.py              # Phase 2 — Train & evaluate ML model
-│   └── monte_carlo.py           # Phase 3 — Run probabilistic simulations
+│   ├── fetch_data.py             # Phase 1 — Load, clean & merge both datasets
+│   ├── ml_model.py               # Phase 2 — Train & evaluate ML model
+│   └── monte_carlo.py            # Phase 3 — Run probabilistic simulations
 │
-├── app.py                       # Phase 4 — Streamlit dashboard
+├── app.py                        # Phase 4 — Streamlit dashboard
 ├── requirements.txt
 └── README.md
 ```
@@ -93,13 +154,17 @@ economic-shock-analyzer/
 **Data flow:**
 
 ```
-World Bank API → fetch_data.py → macro_data.csv
-                                       ↓
-                               ml_model.py → rf_model.pkl
-                                       ↓
-                             monte_carlo.py → results/
-                                       ↓
-                                    app.py (dashboard)
+commodity_prices.csv ──┐
+                        ├──► fetch_data.py ──► merged_data.csv
+macro_indicators.csv ──┘           │
+                                   ▼
+                           ml_model.py ──► rf_model.pkl
+                                   │
+                                   ▼
+                         monte_carlo.py ──► results/
+                                   │
+                                   ▼
+                              app.py (dashboard)
 ```
 
 ---
@@ -109,8 +174,7 @@ World Bank API → fetch_data.py → macro_data.csv
 | Layer | Tool | Purpose |
 |---|---|---|
 | Language | Python 3.10+ | Core language |
-| Data Fetching | `wbgapi` | World Bank macroeconomic data |
-| Data Processing | `pandas`, `numpy` | Cleaning, transformations |
+| Data Processing | `pandas`, `numpy` | Cleaning, resampling, merging datasets |
 | ML Models | `scikit-learn` | Random Forest / Gradient Boosting regression |
 | Statistics | `scipy` | Distributions and Monte Carlo sampling |
 | Dashboard | `streamlit` | Interactive web UI |
@@ -145,29 +209,35 @@ venv\Scripts\activate           # Windows
 pip install -r requirements.txt
 ```
 
+### 4. Add the Datasets
+
+Download both datasets from Kaggle and place them in the `data/` folder:
+- `data/commodity_prices.csv` — AlphaVantage commodity prices dataset
+- `data/macro_indicators.csv` — World Bank global economic indicators dataset
+
 ---
 
 ## 📖 Usage Guide
 
 Run each phase in order:
 
-### Phase 1 — Fetch Real Data
+### Phase 1 — Load & Merge Data
 ```bash
 python3 analysis/fetch_data.py
 ```
-Downloads macroeconomic indicators from the World Bank API and saves to `data/macro_data.csv`.
+Loads both CSVs, resamples commodity data from monthly to annual, merges on year, and saves to `data/merged_data.csv`.
 
 ### Phase 2 — Train the ML Model
 ```bash
 python3 analysis/ml_model.py
 ```
-Trains a regression model on historical macro data, evaluates it (MAE, RMSE, R²), and saves the model to `models/rf_model.pkl`.
+Trains a regression model on the merged dataset, evaluates it (MAE, RMSE, R²), and saves the model to `models/rf_model.pkl`.
 
 ### Phase 3 — Run Monte Carlo Simulation
 ```bash
 python3 analysis/monte_carlo.py
 ```
-Runs 1,000+ randomized scenarios and writes results to `output/results/`.
+Runs 1,000+ randomized commodity shock scenarios and writes results to `output/results/`.
 
 ### Phase 4 — Launch the Dashboard
 ```bash
@@ -179,29 +249,40 @@ Opens the interactive dashboard at `http://localhost:8501`.
 
 ## 🔬 How It Works
 
-### Phase 1 — Real Macroeconomic Data
+### Phase 1 — Data Preparation
 
-Data is pulled from the **World Bank Open Data API** using `wbgapi`:
+**Commodity dataset** (monthly → annual resampling):
 
-| Indicator | World Bank Code |
+| Shock Variable | Commodity Column |
 |---|---|
-| Inflation rate (%) | `FP.CPI.TOTL.ZG` |
-| GDP growth (%) | `NY.GDP.MKTP.KD.ZG` |
-| Real interest rate (%) | `FR.INR.RINR` |
-| Unemployment rate (%) | `SL.UEM.TOTL.ZS` |
+| Energy shock | `WTI`, `BRENT`, `NATURAL_GAS` |
+| Metals shock | `ALUMINUM` |
+| Food/Agri shock | `CORN`, `COTTON`, `SUGAR` |
+| Composite shock | `ALL_COMMODITIES` |
+
+**Macro dataset** (annual, used as target variables):
+
+| Impact Variable | Column |
+|---|---|
+| GDP Growth | `GDP Growth (% Annual)` |
+| Inflation | `Inflation (CPI %)` |
+| Unemployment | `Unemployment Rate (%)` |
+| Interest Rate | `Interest Rate (Real, %)` |
+
+Both datasets are merged on `year`, with commodity prices serving as **features (X)** and macro indicators as **targets (y)**.
 
 ### Phase 2 — ML Model
 
-- **Target:** Predicted Revenue Impact (%)
-- **Features:** Inflation %, Interest Rate %, GDP Growth %, Unemployment %
+- **Features (X):** Annual commodity prices — WTI, Brent, Natural Gas, Aluminum, Corn, Cotton, Sugar
+- **Target (y):** GDP Growth %, Inflation %, Unemployment Rate %
 - **Pipeline:** `StandardScaler` → `RandomForestRegressor` or `GradientBoostingRegressor`
 - **Evaluation metrics:** MAE, RMSE, R²
 
-The model learns from historical country-level data how macro conditions have historically correlated with business revenue changes.
+The model learns how commodity price changes have historically transmitted into macroeconomic outcomes across countries.
 
 ### Phase 3 — Monte Carlo Simulation
 
-- Samples 1,000+ random combinations of macro inputs (drawn from calibrated distributions)
+- Samples 1,000+ random combinations of commodity price shocks (drawn from calibrated distributions)
 - Applies the trained ML model to each scenario
 - Aggregates results into:
   - 📈 Best case (95th percentile)
@@ -213,26 +294,28 @@ The model learns from historical country-level data how macro conditions have hi
 
 | Component | Description |
 |---|---|
-| Sidebar sliders | Adjust Inflation %, Interest Rate %, Demand Shock % |
-| KPI cards | Revenue impact, Cost impact, Profit impact |
-| Histogram | Monte Carlo distribution of revenue outcomes |
-| Line chart | Scenario comparisons over time |
-| Heatmap | Risk exposure across macro combinations |
+| Sidebar sliders | Adjust WTI oil price, commodity index, food prices |
+| KPI cards | GDP impact, inflation delta, unemployment shift |
+| Histogram | Monte Carlo distribution of macro outcomes |
+| Line chart | Commodity price trends vs macro indicators over time |
+| Heatmap | Risk exposure across commodity combinations |
 | Comparison table | Side-by-side named scenario results |
 
 ---
 
 ## 🗺 Roadmap
 
-- [x] World Bank API integration
+- [x] Commodity price data pipeline (AlphaVantage, 1980–2023)
+- [x] World Bank macro indicators integration (2010–2025)
+- [x] Annual merge & preprocessing pipeline
 - [x] Random Forest / Gradient Boosting ML model
 - [x] Monte Carlo simulation engine
 - [x] Streamlit dashboard with scenario sliders
-- [ ] Sector-specific impact models (retail, SaaS, manufacturing)
+- [ ] India-specific sectoral stress models (agriculture, manufacturing, services)
 - [ ] Export simulation results to PDF / Excel
 - [ ] Multi-country comparison mode
 - [ ] GPT-powered natural language scenario interpreter
-- [ ] Historical back-testing against actual business data
+- [ ] Historical back-testing against documented shock events (2008, 2020, 2022)
 
 ---
 
@@ -243,4 +326,4 @@ Internship Portfolio Project — Economic Shock Impact Analyzer
 
 ---
 
-*Built with real data. Powered by ML. Designed for decisions.*
+*Built with real commodity & macro data. Powered by ML. Designed for decisions.*
