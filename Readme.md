@@ -317,12 +317,7 @@ The model learns how commodity price changes have historically transmitted into 
 - [ ] GPT-powered natural language scenario interpreter
 - [ ] Historical back-testing against documented shock events (2008, 2020, 2022)
 
----
 
-## 👩‍💻 Author
-
-**Saumya Mishra**
-Internship Portfolio Project — Economic Shock Impact Analyzer
 
 ---
 
