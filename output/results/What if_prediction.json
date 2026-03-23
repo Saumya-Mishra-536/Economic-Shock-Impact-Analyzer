@@ -1,0 +1,26 @@
+{
+  "inputs": {
+    "WTI": 46.87,
+    "BRENT": 48.42,
+    "NATURAL_GAS": 3.7,
+    "ALUMINUM": 1805.24,
+    "CORN": 10.0,
+    "COTTON": 78.21,
+    "SUGAR": 13.22,
+    "COPPER": 4552.64,
+    "WHEAT": 179.5,
+    "ALL_COMMODITIES": 103.43
+  },
+  "predictions": {
+    "Inflation (CPI %)": 4.026983997776686,
+    "GDP Growth (% Annual)": 3.508853171539829,
+    "Unemployment Rate (%)": 6.964435637523901,
+    "Interest Rate (Real, %)": 2.0180916187010585
+  },
+  "baseline": {
+    "Inflation (CPI %)": 4.080222296349954,
+    "GDP Growth (% Annual)": 3.612698507352469,
+    "Unemployment Rate (%)": 6.925922536176927,
+    "Interest Rate (Real, %)": 2.0025049727355757
+  }
+}
