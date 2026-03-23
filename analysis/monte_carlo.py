@@ -20,7 +20,6 @@ def get_base_stats(features):
 def run_simulation(model, features, targets, shocks=None, n=1000):
     means, stds = get_base_stats(features)
     np.random.seed(42)
-
     rows = []
     for _ in range(n):
         sample = {}
@@ -31,11 +30,9 @@ def run_simulation(model, features, targets, shocks=None, n=1000):
             else:
                 sample[col] = np.random.normal(means[col], stds[col])
         rows.append(sample)
-
     X = pd.DataFrame(rows, columns=features)
     preds = model.predict(X)
-    results = pd.DataFrame(preds, columns=targets)
-    return pd.concat([X, results], axis=1)
+    return pd.concat([X, pd.DataFrame(preds, columns=targets)], axis=1)
 
 def summarize(results, targets):
     summary = {}
@@ -52,12 +49,15 @@ def summarize(results, targets):
 
 def main(shocks=None, scenario="default"):
     model, features, targets = load_model()
-    print(f"running {1000} simulations for scenario: {scenario}")
-
+    print(f"running 1000 simulations for scenario: {scenario}")
     results = run_simulation(model, features, targets, shocks)
     summary = summarize(results, targets)
 
+    # make sure output/results is a directory not a file
+    if os.path.isfile(RESULTS_DIR):
+        os.remove(RESULTS_DIR)
     os.makedirs(RESULTS_DIR, exist_ok=True)
+
     results.to_csv(os.path.join(RESULTS_DIR, f"{scenario}_simulations.csv"), index=False)
     json.dump(summary, open(os.path.join(RESULTS_DIR, f"{scenario}_summary.json"), "w"), indent=2)
 
@@ -69,6 +69,5 @@ def main(shocks=None, scenario="default"):
     print(f"\nsaved to output/results/")
 
 if __name__ == "__main__":
-    # try changing the shock values to simulate different scenarios
     shocks = {"WTI": (40, 10), "BRENT": (40, 10)}
     main(shocks=shocks, scenario="oil_spike_40pct")

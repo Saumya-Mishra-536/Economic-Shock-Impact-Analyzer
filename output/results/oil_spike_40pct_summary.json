@@ -1,0 +1,30 @@
+{
+  "Inflation (CPI %)": {
+    "mean": 6.141,
+    "median": 6.021,
+    "best_case": 7.584,
+    "worst_case": 4.985,
+    "risk_score": 0.133
+  },
+  "GDP Growth (% Annual)": {
+    "mean": 2.343,
+    "median": 2.621,
+    "best_case": 3.102,
+    "worst_case": 1.351,
+    "risk_score": 0.262
+  },
+  "Unemployment Rate (%)": {
+    "mean": 7.554,
+    "median": 7.47,
+    "best_case": 7.978,
+    "worst_case": 7.217,
+    "risk_score": 0.034
+  },
+  "Interest Rate (Real, %)": {
+    "mean": 3.6,
+    "median": 3.394,
+    "best_case": 4.811,
+    "worst_case": 2.654,
+    "risk_score": 0.198
+  }
+}
