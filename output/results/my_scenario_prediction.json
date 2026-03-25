@@ -1,26 +1,24 @@
 {
-  "inputs": {
-    "WTI": 46.87,
-    "BRENT": 48.42,
-    "NATURAL_GAS": 3.7,
-    "ALUMINUM": 1805.24,
-    "CORN": 155.72,
-    "COTTON": 78.21,
-    "SUGAR": 13.22,
-    "COPPER": 4552.64,
-    "WHEAT": 179.5,
-    "ALL_COMMODITIES": 103.43
+  "business": "\u2615 Cafe & Beverages",
+  "scenario": "my_scenario",
+  "live_prices": {
+    "COFFEE": 319.15,
+    "SUGAR": 15.9,
+    "NATURAL_GAS": 2.83,
+    "WHEAT": 585.25
   },
   "predictions": {
-    "Inflation (CPI %)": 4.080222296349954,
-    "GDP Growth (% Annual)": 3.612698507352469,
-    "Unemployment Rate (%)": 6.925922536176927,
-    "Interest Rate (Real, %)": 2.0025049727355757
+    "Inflation (CPI %)": 4.225074881352909,
+    "GDP Growth (% Annual)": 3.679742155699613,
+    "Unemployment Rate (%)": 6.918259533282895,
+    "Interest Rate (Real, %)": 2.071581438686619
   },
   "baseline": {
     "Inflation (CPI %)": 4.080222296349954,
     "GDP Growth (% Annual)": 3.612698507352469,
     "Unemployment Rate (%)": 6.925922536176927,
     "Interest Rate (Real, %)": 2.0025049727355757
-  }
+  },
+  "cost_impact_pct": 33.08,
+  "verdict": "\ud83d\udfe1 Proceed with Caution"
 }
