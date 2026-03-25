@@ -147,12 +147,4 @@ def calculate_cost_impact(profile_commodities, live_prices, historical_means):
             }
 
     return round(total_impact, 2), breakdown
-```
 
----
-
-Now we have all 3 pieces ready:
-```
-✅ business_profiles.py   — what commodities each business uses
-✅ business_translator.py — macro numbers → business language
-✅ now we rewrite app.py  — the full dashboard
