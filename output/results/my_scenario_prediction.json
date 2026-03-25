@@ -1,17 +1,17 @@
 {
-  "business": "\u2615 Cafe & Beverages",
+  "business": "\ud83c\udf3e Farm",
   "scenario": "my_scenario",
   "live_prices": {
-    "COFFEE": 319.15,
-    "SUGAR": 15.9,
-    "NATURAL_GAS": 2.83,
-    "WHEAT": 585.25
+    "WHEAT": 582.0,
+    "CORN": 459.5,
+    "COTTON": 67.9,
+    "SUGAR": 15.37
   },
   "predictions": {
-    "Inflation (CPI %)": 4.225074881352909,
-    "GDP Growth (% Annual)": 3.679742155699613,
-    "Unemployment Rate (%)": 6.918259533282895,
-    "Interest Rate (Real, %)": 2.071581438686619
+    "Inflation (CPI %)": 4.351515309236441,
+    "GDP Growth (% Annual)": 3.51460433503963,
+    "Unemployment Rate (%)": 6.999301158409648,
+    "Interest Rate (Real, %)": 2.1828302569418048
   },
   "baseline": {
     "Inflation (CPI %)": 4.080222296349954,
@@ -19,6 +19,6 @@
     "Unemployment Rate (%)": 6.925922536176927,
     "Interest Rate (Real, %)": 2.0025049727355757
   },
-  "cost_impact_pct": 33.08,
+  "cost_impact_pct": 148.84,
   "verdict": "\ud83d\udfe1 Proceed with Caution"
 }

@@ -41,8 +41,12 @@ def add_macro_columns(df):
     np.random.seed(42)
     n = len(df)
 
-    df["Inflation (CPI %)"] = (4.0 + 0.04*oil_dev + 0.03*gas_dev + 0.02*food_dev + np.random.normal(0, 0.3, n)).clip(0, 25)
-    df["GDP Growth (% Annual)"] = (3.5 - 0.03*oil_dev + 0.01*metals_dev - 0.02*gas_dev + np.random.normal(0, 0.3, n)).clip(-10, 12)
+    # change this in fetch_data.py
+    # in fetch_data.py change this line
+    df["Inflation (CPI %)"] = (4.0 + 0.04*oil_dev + 0.03*gas_dev + 0.15*food_dev + np.random.normal(0, 0.15, n)).clip(0, 25)
+
+# and this line too — food should also drag GDP
+    df["GDP Growth (% Annual)"] = (3.5 - 0.03*oil_dev + 0.01*metals_dev - 0.02*gas_dev - 0.04*food_dev + np.random.normal(0, 0.15, n)).clip(-10, 12)
     df["Unemployment Rate (%)"] = (7.0 - 0.5*(df["GDP Growth (% Annual)"] - 3.5) + np.random.normal(0, 0.3, n)).clip(2, 20)
     df["Interest Rate (Real, %)"] = (2.0 + 0.5*(df["Inflation (CPI %)"] - 4.0) - 0.5*(df["GDP Growth (% Annual)"] - 3.5) + np.random.normal(0, 0.2, n)).clip(-5, 20)
 
