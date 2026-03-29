@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+output/results/*.json
+output/results/*.csv
+test_yfinance.py

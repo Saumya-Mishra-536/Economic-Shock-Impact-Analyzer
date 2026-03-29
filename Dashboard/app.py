@@ -58,8 +58,9 @@ st.markdown("""
     font-size: 2.2rem; letter-spacing: 0.08em;
     color: #fff;
 }
-.logo span { color: var(--accent); }
+.logo span { color: var(--accent); margin-left: 0.2rem; }
 .tagline { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; }
+.tagline { word-spacing: 0.12em; }
 .live-badge {
     font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
     background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3);
@@ -231,12 +232,47 @@ def load_model():
 def load_history():
     return pd.read_csv(os.path.join(DATA_DIR, "merged_data.csv"), index_col="year")
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=180)
 def fetch_live_price(ticker):
+    """Return latest trade/close for a Yahoo ticker with robust fallbacks.
+
+    Strategy:
+    1) Try fast_info.last_price (fast + works for many futures).
+    2) Fallback to history over wider windows (5d → 1mo → 3mo) and take last non‑NA close.
+    3) Final fallback to yf.download.
+    Returns None only if all attempts fail.
+    """
     try:
-        return round(float(yf.Ticker(ticker).history(period="1d")["Close"].iloc[-1]), 2)
-    except:
-        return None
+        t = yf.Ticker(ticker)
+        # 1) fast_info
+        fi = getattr(t, "fast_info", None)
+        if fi is not None:
+            last = getattr(fi, "last_price", None)
+            if last is None:
+                try:
+                    last = fi.get("last_price")  # dict-like in some yfinance versions
+                except Exception:
+                    last = None
+            if last is not None and not pd.isna(last) and float(last) != 0:
+                return round(float(last), 2)
+
+        # 2) history with broader windows
+        for period in ("5d", "1mo", "3mo"):
+            df = t.history(period=period, interval="1d", auto_adjust=False, prepost=True, actions=False)
+            if df is not None and not df.empty and "Close" in df.columns:
+                s = df["Close"].dropna()
+                if not s.empty:
+                    return round(float(s.iloc[-1]), 2)
+
+        # 3) yf.download as a last resort
+        df2 = yf.download(ticker, period="5d", interval="1d", progress=False)
+        if df2 is not None and not df2.empty and "Close" in df2.columns:
+            s2 = df2["Close"].dropna()
+            if not s2.empty:
+                return round(float(s2.iloc[-1]), 2)
+    except Exception:
+        pass
+    return None
 
 model, features, targets = load_model()
 df = load_history()
@@ -259,7 +295,7 @@ plot_theme = dict(
 st.markdown("""
 <div class="topbar">
     <div class="topbar-left">
-        <div class="logo">Biz<span>Shock</span></div>
+        <div class="logo">Biz<span> Shock</span></div>
         <div class="tagline">COMMODITY SHOCK · BUSINESS IMPACT ANALYZER</div>
     </div>
     <div class="live-badge">● LIVE DATA</div>
@@ -334,41 +370,74 @@ for i, (commodity, info) in enumerate(active_commodities.items()):
     price = fetch_live_price(info["ticker"])
     live_prices[commodity] = price
     hist = historical_means.get(commodity, 0)
-    change = ((price - hist) / hist * 100) if price and hist else 0
-    tag_color = "#f85149" if change > 5 else "#d29922" if change > 0 else "#3fb950"
-    arrow = "▲" if change > 0 else "▼"
+
+    if price is None:
+        price_text = "N/A"
+        change_text = "no live data"
+        tag_color = "#484f58"  # muted
+    else:
+        price_text = f"${price:.2f}"
+        if hist:
+            change = ((price - hist) / hist * 100)
+            tag_color = "#f85149" if change > 5 else "#d29922" if change > 0 else "#3fb950"
+            arrow = "▲" if change > 0 else "▼"
+            change_text = f"{arrow} {abs(change):.1f}% vs hist avg"
+        else:
+            # No historical baseline; show price only
+            tag_color = "#484f58"
+            change_text = "baseline N/A"
+
     with price_cols[i]:
         st.markdown(f"""
         <div class='pcard'>
             <div class='pname'>{commodity.replace('_',' ')}</div>
-            <div class='pprice'>${price:.2f}</div>
-            <div class='pchange' style='color:{tag_color}'>{arrow} {abs(change):.1f}% vs hist avg</div>
+            <div class='pprice'>{price_text}</div>
+            <div class='pchange' style='color:{tag_color}'>{change_text}</div>
         </div>""", unsafe_allow_html=True)
 
 # ── step 3: macro explorer ────────────────────────────────────────────────────
 st.markdown("<div class='sec-header'>03 — Historical Macro Indicators</div>", unsafe_allow_html=True)
 
-icons = {"Inflation (CPI %)": "INF", "GDP Growth (% Annual)": "GDP", "Unemployment Rate (%)": "UNE", "Interest Rate (Real, %)": "INT"}
-tabs = st.tabs([f"{icons.get(t,'')} · {t.split('(')[0].strip().upper()}" for t in targets])
+# Tab titles without abbreviations (use full names)
+tabs = st.tabs([t.split('(')[0].strip() for t in targets])
 
 for tab, target in zip(tabs, targets):
     with tab:
         fig = go.Figure()
+        series = df[target]
+        ymin, ymax = float(series.min()), float(series.max())
+
+        # main line
         fig.add_trace(go.Scatter(
-            x=df.index, y=df[target], mode="lines",
+            x=df.index, y=series, mode="lines",
             line=dict(color="#58a6ff", width=1.5),
-            fill="tozeroy", fillcolor="rgba(88,166,255,0.05)",
             name=target
         ))
+        # small markers for context
         fig.add_trace(go.Scatter(
-            x=df.index, y=df[target], mode="markers",
+            x=df.index, y=series, mode="markers",
             marker=dict(size=4, color="#58a6ff", line=dict(color="#0d1117", width=1)),
             showlegend=False
         ))
-        avg = df[target].mean()
+
+        # Average band highlights: green below avg, red above avg
+        avg = float(series.mean())
+        fig.add_hrect(y0=ymin, y1=avg, fillcolor="rgba(63,185,80,0.06)", line_width=0, layer="below")
+        fig.add_hrect(y0=avg, y1=ymax, fillcolor="rgba(248,81,73,0.06)", line_width=0, layer="below")
+
+        # Mean reference line
         fig.add_hline(y=avg, line_dash="dot", line_color="#2a3444", line_width=1,
                       annotation_text=f"μ {avg:.2f}%",
                       annotation_font=dict(color="#484f58", size=10, family="IBM Plex Mono"))
+
+        # Emphasize the latest point
+        last_x = series.index[-1]
+        last_y = float(series.iloc[-1])
+        fig.add_trace(
+            go.Scatter(x=[last_x], y=[last_y], mode="markers",
+                       marker=dict(size=8, color="#58a6ff", line=dict(color="#ffffff", width=1.5)),
+                       showlegend=False, hoverinfo="skip")
+        )
         fig.update_layout(**plot_theme, height=280)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -390,7 +459,8 @@ for tab, target in zip(tabs, targets):
 st.markdown("<div class='sec-header'>04 — Business Impact Analysis</div>", unsafe_allow_html=True)
 
 if analyze_btn:
-    input_data  = {f: live_prices.get(f, historical_means.get(f, 0)) for f in features}
+    # Use live price when available; otherwise fall back to historical mean
+    input_data  = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
     input_df    = pd.DataFrame([input_data])[features]
     prediction  = model.predict(input_df)[0]
     result      = dict(zip(targets, prediction))
@@ -424,7 +494,7 @@ if analyze_btn:
         with res_cols[i]:
             st.markdown(f"""
             <div class='mcard {cls}'>
-                <div class='mlabel'>{icons.get(target,'')} · {target.split("(")[0].strip()}</div>
+                <div class='mlabel'>{target.split("(")[0].strip()}</div>
                 <div class='mvalue'>{value:.1f}%</div>
                 <div class='msub' style='color:{color}'>{arrow} {abs(diff):.2f}pp vs baseline</div>
             </div>""", unsafe_allow_html=True)
