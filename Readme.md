@@ -47,6 +47,25 @@ The output isn't a single answer — it's a **probability distribution** of outc
 | 🎓 MBA / Economics Students | Applied macro-business analysis for portfolios |
 | 📈 Financial Analysts | Complement DCF models with probabilistic scenario analysis |
 
+
+
+## 🌍 Why This Matters
+
+Global economies are highly sensitive to commodity shocks:
+
+- 🛢️ Oil spikes → Inflation surges, growth slows  
+- 🌾 Food shocks → Social + policy instability  
+- 🏗 Metals surge → Manufacturing cost pressure  
+
+Traditional models give **single forecasts** — but real-world outcomes are uncertain.
+
+This tool embraces uncertainty by providing:
+- 📉 Downside risk (worst-case scenarios)
+- 📈 Upside potential (best-case outcomes)
+- 🎯 Most probable macro trajectory
+
+👉 Making it useful for **strategy, policy, and investment decisions**
+
 ---
 
 ## 🚀 Live Demo
