@@ -703,7 +703,43 @@ elif st.session_state.page == "simulate":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — RECOMMENDATIONS
 # ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "recommend":
+
     if st.session_state.prediction_result is None:
+        st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
+        col_back, _ = st.columns([1, 5])
+        with col_back:
+            if st.button("← Back to Simulation"):
+                go_to("simulate")
+        st.markdown("""
+        <div class='section-label'>Recommendations</div>
+        <div class='section-title'>Strategic Recommendations</div>
+        <div class='section-divider'></div>
+        <div style='text-align:center;padding:4rem 2rem;border:1px dashed #2a2d44;
+        border-radius:4px;margin-top:1rem'>
+            <div style='font-size:2.5rem;margin-bottom:1rem'>🔍</div>
+            <div style='font-family:Playfair Display,serif;font-size:1.4rem;
+            color:#fff;margin-bottom:0.75rem'>No Analysis Available</div>
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
+            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8;margin-bottom:2rem'>
+            You have not run a simulation yet.<br>
+            Head to the Simulation page to generate recommendations.
+            </div>
+        </div>""", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_l, col_c, col_r = st.columns([2, 1, 2])
+        with col_c:
+            if st.button("Go to Simulation  ▶"):
+                go_to("simulate")
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.stop()
+
+    st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
+
+    col_back, _ = st.columns([1, 5])
+    with col_back:
+        if st.button("← Back to Simulation"):
+            go_to("simulate")
         st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
         st.markdown("""
         <div class='section-label'>Recommendations</div>
