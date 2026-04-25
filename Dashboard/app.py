@@ -553,6 +553,33 @@ elif st.session_state.page == "simulate":
     with col_c:
         run_btn = st.button("Run Prediction  ▶")
 
+    # ── Duplicate scenario name check ─────────────────────────────────────────
+    existing_file = os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json")
+    if run_btn and os.path.exists(existing_file):
+        st.markdown(f"""
+        <div style='
+            background: rgba(242,101,90,0.08);
+            border: 1px solid rgba(242,101,90,0.35);
+            border-left: 3px solid #f2655a;
+            border-radius: 3px;
+            padding: 1rem 1.5rem;
+            margin-top: 1rem;
+            font-family: IBM Plex Mono, monospace;
+        '>
+            <div style='color:#f2655a;font-size:0.65rem;letter-spacing:0.18em;
+            text-transform:uppercase;margin-bottom:0.35rem'>
+                ⚠ Scenario Name Already Exists
+            </div>
+            <div style='color:#e2e4f0;font-size:0.85rem;line-height:1.6'>
+                A scenario named <strong>"{scenario_name}"</strong> has already been saved.
+                Please choose a different label in the <em>Scenario Label</em> field above and run again.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        run_btn = False   # block execution
+
+    if run_btn:
+
     if run_btn:
         input_data = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
         input_df = pd.DataFrame([input_data])[features]
