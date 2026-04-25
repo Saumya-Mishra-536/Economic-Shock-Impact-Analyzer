@@ -576,9 +576,7 @@ elif st.session_state.page == "simulate":
             </div>
         </div>
         """, unsafe_allow_html=True)
-        run_btn = False   # block execution
-
-    if run_btn:
+        run_btn = False   
 
     if run_btn:
         input_data = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
