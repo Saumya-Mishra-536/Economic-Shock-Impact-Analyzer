@@ -199,7 +199,8 @@ hr { border-color: var(--border) !important; }
 """, unsafe_allow_html=True)
 
 # ── VIDEO BACKGROUND ─────────────────────────────────────────────────────────
-def add_video_background():
+if st.session_state.page == "welcome":
+    add_video_background()
     import base64
     video_path = os.path.join(os.path.dirname(__file__), "bg.mp4")
     if not os.path.exists(video_path):
@@ -222,8 +223,8 @@ def add_video_background():
         min-width: 100vw; min-height: 100vh;
         width: auto; height: auto;
         object-fit: cover;
-        opacity: 0.22;
-        filter: saturate(0.5) brightness(0.65) hue-rotate(5deg);
+        opacity: 0.28;
+        filter: saturate(0.4) brightness(0.5) hue-rotate(5deg);
     }}
     .video-bg-overlay {{
         position: fixed;
@@ -232,12 +233,12 @@ def add_video_background():
         pointer-events: none;
         background:
             linear-gradient(180deg,
-                rgba(9,9,14,0.80) 0%,
-                rgba(9,9,14,0.50) 35%,
-                rgba(9,9,14,0.50) 65%,
-                rgba(9,9,14,0.88) 100%),
+                rgba(9,9,14,0.70) 0%,
+                rgba(9,9,14,0.30) 35%,
+                rgba(9,9,14,0.30) 65%,
+                rgba(9,9,14,0.75) 100%),
             radial-gradient(ellipse 80% 60% at 50% 50%,
-                transparent 30%, rgba(9,9,14,0.55) 100%);
+                transparent 30%, rgba(9,9,14,0.35) 100%);
     }}
     /* lift all UI above video layers */
     .navbar,
