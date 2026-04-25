@@ -206,7 +206,7 @@ section[data-testid="stSidebarContent"] { display: none; }
 }
 
 .stTabs [data-baseweb="tab-list"] { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 3px; gap: 2px; }
-.stTabs [data-baseweb="tab"] { background: transparent !important; color: var(--muted) !important; border-radius: 2px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.65rem !important; letter-spacing: 0.08em !important; padding: 0.4rem 1.2rem !important; margin: 0 2px !important; }
+.stTabs [data-baseweb="tab"] { background: transparent !important; color: var(--muted) !important; border-radius: 2px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.65rem !important; letter-spacing: 0.08em !important; padding: 1.2rem 1.8rem !important; margin: 0 2px !important; }
 .stTabs [aria-selected="true"] { background: var(--gold-dim) !important; color: var(--gold) !important; border: 1px solid rgba(201,168,76,0.25) !important; }
 
 .stDataFrame { border: 1px solid var(--border) !important; border-radius: 4px !important; }
