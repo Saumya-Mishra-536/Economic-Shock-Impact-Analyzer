@@ -199,8 +199,7 @@ hr { border-color: var(--border) !important; }
 """, unsafe_allow_html=True)
 
 # ── VIDEO BACKGROUND ─────────────────────────────────────────────────────────
-if st.session_state.page == "welcome":
-    add_video_background()
+def add_video_background():
     import base64
     video_path = os.path.join(os.path.dirname(__file__), "bg.mp4")
     if not os.path.exists(video_path):
@@ -210,42 +209,29 @@ if st.session_state.page == "welcome":
     st.markdown(f"""
     <style>
     .video-bg-wrap {{
-        position: fixed;
-        inset: 0;
-        z-index: 0;
-        overflow: hidden;
-        pointer-events: none;
+        position: fixed; inset: 0; z-index: 0;
+        overflow: hidden; pointer-events: none;
     }}
     .video-bg-wrap video {{
-        position: absolute;
-        top: 50%; left: 50%;
+        position: absolute; top: 50%; left: 50%;
         transform: translate(-50%, -50%);
         min-width: 100vw; min-height: 100vh;
-        width: auto; height: auto;
-        object-fit: cover;
+        width: auto; height: auto; object-fit: cover;
         opacity: 0.28;
         filter: saturate(0.4) brightness(0.5) hue-rotate(5deg);
     }}
     .video-bg-overlay {{
-        position: fixed;
-        inset: 0;
-        z-index: 1;
-        pointer-events: none;
+        position: fixed; inset: 0; z-index: 1; pointer-events: none;
         background:
             linear-gradient(180deg,
-                rgba(9,9,14,0.70) 0%,
-                rgba(9,9,14,0.30) 35%,
-                rgba(9,9,14,0.30) 65%,
-                rgba(9,9,14,0.75) 100%),
+                rgba(9,9,14,0.70) 0%, rgba(9,9,14,0.30) 35%,
+                rgba(9,9,14,0.30) 65%, rgba(9,9,14,0.75) 100%),
             radial-gradient(ellipse 80% 60% at 50% 50%,
                 transparent 30%, rgba(9,9,14,0.35) 100%);
     }}
-    /* lift all UI above video layers */
-    .navbar,
-    .page-wrapper,
+    .navbar, .page-wrapper,
     [data-testid="stAppViewContainer"] > section > div {{
-        position: relative;
-        z-index: 2;
+        position: relative; z-index: 2;
     }}
     </style>
     <div class="video-bg-wrap">
@@ -256,7 +242,8 @@ if st.session_state.page == "welcome":
     <div class="video-bg-overlay"></div>
     """, unsafe_allow_html=True)
 
-add_video_background()
+if st.session_state.page == "welcome":
+    add_video_background()
 
 # ── LOAD ─────────────────────────────────────────────────────────────────────
 @st.cache_resource
