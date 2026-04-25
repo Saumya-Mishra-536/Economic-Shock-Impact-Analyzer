@@ -635,6 +635,21 @@ elif st.session_state.page == "simulate":
     with col_c:
         run_btn = st.button("Run Prediction  ▶")
 
+    # ── Empty scenario name check ─────────────────────────────────────────────
+    if run_btn and not scenario_name.strip():
+        st.markdown("""
+        <div style='background:rgba(240,162,58,0.08);border:1px solid rgba(240,162,58,0.35);
+        border-left:3px solid #f0a23a;border-radius:3px;padding:1rem 1.5rem;margin-top:1rem;
+        font-family:IBM Plex Mono,monospace;'>
+            <div style='color:#f0a23a;font-size:0.65rem;letter-spacing:0.18em;
+            text-transform:uppercase;margin-bottom:0.35rem'>⚠ Scenario Name Required</div>
+            <div style='color:#e2e4f0;font-size:0.85rem;line-height:1.6'>
+                Please enter a name in the <strong>Scenario Label</strong> field before running a prediction.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        run_btn = False
+
     # ── Duplicate scenario name check ─────────────────────────────────────────
     existing_file = os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json")
     if run_btn and os.path.exists(existing_file):
