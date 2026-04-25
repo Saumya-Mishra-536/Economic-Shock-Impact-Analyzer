@@ -14,212 +14,191 @@ DATA_DIR    = os.path.join(os.path.dirname(__file__), "..", "data")
 MODEL_DIR   = os.path.join(os.path.dirname(__file__), "..", "models")
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "results")
 
-st.set_page_config(page_title="BizShock", page_icon="📉", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="BizShock", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
 
 :root {
-    --bg:       #080a0f;
-    --surface:  #0d1117;
-    --border:   #1c2333;
-    --border2:  #2a3444;
-    --text:     #c9d1d9;
-    --muted:    #484f58;
-    --accent:   #58a6ff;
-    --green:    #3fb950;
-    --red:      #f85149;
-    --yellow:   #d29922;
-    --purple:   #bc8cff;
+    --bg:         #09090e;
+    --surface:    #0f1018;
+    --surface2:   #14151f;
+    --border:     #1e2030;
+    --border2:    #2a2d44;
+    --text:       #e2e4f0;
+    --muted:      #5a5d7a;
+    --muted2:     #3a3d55;
+    --gold:       #c9a84c;
+    --gold-light: #e8c97a;
+    --gold-dim:   rgba(201,168,76,0.12);
+    --green:      #3ecf8e;
+    --red:        #f2655a;
+    --amber:      #f0a23a;
+    --blue:       #5b8ff9;
 }
 
-* { font-family: 'IBM Plex Sans', sans-serif; box-sizing: border-box; }
+* { font-family: 'Source Sans 3', sans-serif; box-sizing: border-box; }
 .stApp { background: var(--bg); color: var(--text); }
-[data-testid="stSidebar"] {
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-}
 
-/* hide streamlit chrome */
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stDecoration"] { display: none; }
+[data-testid="stSidebar"] { display: none; }
+section[data-testid="stSidebarContent"] { display: none; }
+.block-container { padding: 0 !important; max-width: 100% !important; }
 
-/* topbar */
-.topbar {
+.navbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 1.2rem 0 1rem;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 2rem;
+    padding: 0 3rem; height: 68px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
 }
-.topbar-left { display: flex; align-items: baseline; gap: 1rem; }
-.logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.2rem; letter-spacing: 0.08em;
-    color: #fff;
+.nav-brand {
+    font-family: 'Playfair Display', serif; font-size: 1.5rem;
+    font-weight: 600; color: var(--gold); letter-spacing: 0.04em;
 }
-.logo span { color: var(--accent); margin-left: 0.2rem; }
-.tagline { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; }
-.tagline { word-spacing: 0.12em; }
-.live-badge {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
-    background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3);
-    color: var(--green); padding: 0.2rem 0.6rem; border-radius: 4px;
-    letter-spacing: 0.08em;
+.nav-brand span { color: var(--text); font-weight: 400; }
+.nav-tagline {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem;
+    color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 2px;
 }
-
-/* section headers */
-.sec-header {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.65rem; font-weight: 500;
-    color: var(--muted); letter-spacing: 0.15em;
-    text-transform: uppercase;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0.5rem; margin: 2rem 0 1rem;
-    display: flex; align-items: center; gap: 0.5rem;
-}
-.sec-header::before {
-    content: ''; display: inline-block;
-    width: 6px; height: 6px;
-    background: var(--accent); border-radius: 50%;
-}
-
-/* metric cards */
-.mcard {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px; padding: 1.2rem 1.4rem;
-    position: relative; overflow: hidden;
-}
-.mcard::after {
-    content: ''; position: absolute;
-    top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent), transparent);
-}
-.mcard .mlabel {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.6rem; color: var(--muted);
-    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.4rem;
-}
-.mcard .mvalue {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.4rem; color: #fff; line-height: 1; margin-bottom: 0.3rem;
-}
-.mcard .msub {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.65rem; color: var(--muted);
-}
-.mcard.up::after { background: linear-gradient(90deg, var(--red), transparent); }
-.mcard.down::after { background: linear-gradient(90deg, var(--green), transparent); }
-.mcard.neutral::after { background: linear-gradient(90deg, var(--purple), transparent); }
-
-/* price ticker cards */
-.pcard {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 6px; padding: 1rem 1.2rem;
-}
-.pcard .pname { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
-.pcard .pprice { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: #fff; }
-.pcard .pchange { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; }
-
-/* verdict */
-.verdict {
-    background: var(--surface); border: 1px solid var(--border2);
-    border-radius: 6px; padding: 1.8rem;
-    display: flex; align-items: flex-start; gap: 1.5rem;
-    margin: 1rem 0;
-}
-.verdict-icon { font-size: 2rem; line-height: 1; }
-.verdict-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
-.verdict-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
-
-/* insight / action rows */
-.insight-row {
-    display: flex; align-items: flex-start; gap: 0.8rem;
-    padding: 0.8rem 1rem; margin: 0.3rem 0;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 6px; font-size: 0.85rem; line-height: 1.5;
-}
-.insight-row .tag {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.55rem; letter-spacing: 0.1em;
-    padding: 0.15rem 0.4rem; border-radius: 3px;
-    white-space: nowrap; margin-top: 0.1rem;
-}
-.tag-red { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
-.tag-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
-.tag-green { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
-
-.action-row {
-    display: flex; align-items: flex-start; gap: 0.8rem;
-    padding: 0.8rem 1rem; margin: 0.3rem 0;
-    background: rgba(88,166,255,0.04); border: 1px solid rgba(88,166,255,0.15);
-    border-radius: 6px; font-size: 0.85rem; line-height: 1.5; color: var(--text);
-}
-.action-num {
+.nav-steps { display: flex; gap: 2px; }
+.nav-step {
     font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem;
-    color: var(--accent); min-width: 1.2rem;
-    margin-top: 0.15rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 0.35rem 1rem; color: var(--muted); border-radius: 2px;
+}
+.nav-step.active { color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(201,168,76,0.25); }
+.nav-step.done { color: var(--green); }
+.live-dot {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; letter-spacing: 0.1em; color: var(--green);
+}
+.live-dot::before {
+    content: ''; width: 6px; height: 6px; background: var(--green);
+    border-radius: 50%; box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.page-wrapper { max-width: 1280px; margin: 0 auto; padding: 3rem 3rem 4rem; }
+
+.hero { text-align: center; padding: 5rem 2rem 4rem; position: relative; }
+.hero::before {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+.hero-eyebrow {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.5rem;
+}
+.hero-title {
+    font-family: 'Playfair Display', serif; font-size: 4rem; font-weight: 700;
+    color: #fff; line-height: 1.1; margin-bottom: 1rem;
+}
+.hero-title span { color: var(--gold); }
+.hero-subtitle {
+    font-size: 1.1rem; color: var(--muted); max-width: 560px; margin: 0 auto 3rem; line-height: 1.7; font-weight: 300;
 }
 
-/* number inputs */
-.stNumberInput input {
-    background: var(--surface) !important;
-    border: 1px solid var(--border2) !important;
-    border-radius: 4px !important; color: var(--text) !important;
-    font-family: 'IBM Plex Mono', monospace !important;
+.section-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold);
+    margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem;
 }
-.stNumberInput input:focus { border-color: var(--accent) !important; }
+.section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border2), transparent); }
+.section-title { font-family: 'Playfair Display', serif; font-size: 1.75rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
+.section-divider { height: 1px; background: linear-gradient(90deg, var(--gold), transparent); width: 60px; margin-bottom: 2rem; }
 
-/* selectbox */
-.stSelectbox > div > div {
-    background: var(--surface) !important;
-    border: 1px solid var(--border2) !important;
-    border-radius: 4px !important;
+.kpi-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-top: 2px solid var(--gold); border-radius: 4px; padding: 1.5rem 1.75rem;
 }
+.kpi-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem;
+}
+.kpi-value { font-family: 'Playfair Display', serif; font-size: 2.2rem; font-weight: 600; color: #fff; line-height: 1; margin-bottom: 0.3rem; }
+.kpi-sub { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: var(--muted); }
+.kpi-card.accent-green { border-top-color: var(--green); }
+.kpi-card.accent-red { border-top-color: var(--red); }
+.kpi-card.accent-amber { border-top-color: var(--amber); }
 
-/* button */
+.price-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1.25rem 1.5rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+}
+.price-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.price-value { font-family: 'Playfair Display', serif; font-size: 1.65rem; color: #fff; line-height: 1; }
+.price-change { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; }
+
+.cta-hint { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; letter-spacing: 0.12em; color: var(--muted); text-align: center; margin-top: 0.75rem; }
+
 .stButton > button {
-    background: var(--accent) !important; color: #000 !important;
-    border: none !important; border-radius: 4px !important;
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.75rem !important; font-weight: 500 !important;
-    letter-spacing: 0.08em !important; text-transform: uppercase !important;
-    padding: 0.6rem 1.5rem !important; width: 100% !important;
+    background: linear-gradient(135deg, #c9a84c, #a8882a) !important;
+    color: #09090e !important; border: none !important; border-radius: 3px !important;
+    font-family: 'IBM Plex Mono', monospace !important; font-size: 0.7rem !important;
+    font-weight: 600 !important; letter-spacing: 0.18em !important; text-transform: uppercase !important;
+    padding: 0.75rem 2.5rem !important; transition: opacity 0.2s !important;
 }
 .stButton > button:hover { opacity: 0.85 !important; }
 
-/* tabs */
-.stTabs [data-baseweb="tab-list"] {
-    background: var(--surface); border-radius: 4px;
-    padding: 3px; gap: 2px; border: 1px solid var(--border);
+.verdict-card {
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 4px;
+    padding: 2rem 2.5rem; display: flex; align-items: flex-start; gap: 2rem; margin: 1.5rem 0;
 }
-.stTabs [data-baseweb="tab"] {
-    background: transparent; color: var(--muted);
-    border-radius: 3px;
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.7rem !important; letter-spacing: 0.05em;
-}
-.stTabs [aria-selected="true"] {
-    background: var(--accent) !important; color: #000 !important;
-}
+.verdict-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; margin-bottom: 0.4rem; }
+.verdict-body { font-size: 0.95rem; color: var(--muted); line-height: 1.6; max-width: 600px; }
 
-/* sidebar */
-[data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] .stTextInput label {
-    font-family: 'IBM Plex Mono', monospace !important;
-    font-size: 0.65rem !important; color: var(--muted) !important;
-    letter-spacing: 0.1em; text-transform: uppercase;
+.insight-row {
+    display: flex; align-items: flex-start; gap: 1rem;
+    padding: 1rem 1.25rem; margin: 0.4rem 0;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
+    font-size: 0.9rem; line-height: 1.6; color: var(--text);
 }
+.signal-tag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.52rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 0.18rem 0.5rem; border-radius: 2px; white-space: nowrap; margin-top: 0.18rem;
+}
+.tag-risk { background: rgba(242,101,90,0.12); color: var(--red); border: 1px solid rgba(242,101,90,0.3); }
+.tag-watch { background: rgba(240,162,58,0.12); color: var(--amber); border: 1px solid rgba(240,162,58,0.3); }
+.tag-stable { background: rgba(62,207,142,0.12); color: var(--green); border: 1px solid rgba(62,207,142,0.3); }
 
+.action-row {
+    display: flex; align-items: flex-start; gap: 1rem;
+    padding: 1rem 1.25rem; margin: 0.4rem 0;
+    background: rgba(201,168,76,0.04); border: 1px solid rgba(201,168,76,0.15);
+    border-radius: 3px; font-size: 0.9rem; line-height: 1.6; color: var(--text);
+}
+.action-num { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--gold); min-width: 1.5rem; margin-top: 0.2rem; font-weight: 500; }
+
+.stNumberInput input, .stTextInput input {
+    background: var(--surface2) !important; border: 1px solid var(--border2) !important;
+    border-radius: 3px !important; color: var(--text) !important;
+    font-family: 'IBM Plex Mono', monospace !important; font-size: 0.85rem !important;
+}
+.stNumberInput input:focus, .stTextInput input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 2px rgba(201,168,76,0.1) !important; }
+.stNumberInput label, .stTextInput label, .stSelectbox label {
+    font-family: 'IBM Plex Mono', monospace !important; font-size: 0.6rem !important;
+    letter-spacing: 0.15em !important; text-transform: uppercase !important; color: var(--muted) !important;
+}
+.stSelectbox > div > div { background: var(--surface2) !important; border: 1px solid var(--border2) !important; border-radius: 3px !important; color: var(--text) !important; }
+
+.stTabs [data-baseweb="tab-list"] { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 3px; gap: 2px; }
+.stTabs [data-baseweb="tab"] { background: transparent !important; color: var(--muted) !important; border-radius: 2px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.65rem !important; letter-spacing: 0.08em !important; }
+.stTabs [aria-selected="true"] { background: var(--gold-dim) !important; color: var(--gold) !important; border: 1px solid rgba(201,168,76,0.25) !important; }
+
+.stDataFrame { border: 1px solid var(--border) !important; border-radius: 4px !important; }
 hr { border-color: var(--border) !important; }
 
-/* dataframe */
-.stDataFrame { border: 1px solid var(--border) !important; border-radius: 6px !important; }
+.gold-rule { height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 2.5rem 0; }
+.ornament { text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.3em; color: var(--muted2); margin: 2rem 0; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── load ──────────────────────────────────────────────────────────────────────
+# ── LOAD ─────────────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
     path = os.path.join(MODEL_DIR, "rf_model.pkl")
@@ -234,339 +213,562 @@ def load_history():
 
 @st.cache_data(ttl=180)
 def fetch_live_price(ticker):
-    """Return latest trade/close for a Yahoo ticker with robust fallbacks.
-
-    Strategy:
-    1) Try fast_info.last_price (fast + works for many futures).
-    2) Fallback to history over wider windows (5d → 1mo → 3mo) and take last non‑NA close.
-    3) Final fallback to yf.download.
-    Returns None only if all attempts fail.
-    """
     try:
         t = yf.Ticker(ticker)
-        # 1) fast_info
         fi = getattr(t, "fast_info", None)
         if fi is not None:
             last = getattr(fi, "last_price", None)
             if last is None:
-                try:
-                    last = fi.get("last_price")  # dict-like in some yfinance versions
-                except Exception:
-                    last = None
+                try: last = fi.get("last_price")
+                except: last = None
             if last is not None and not pd.isna(last) and float(last) != 0:
                 return round(float(last), 2)
-
-        # 2) history with broader windows
         for period in ("5d", "1mo", "3mo"):
             df = t.history(period=period, interval="1d", auto_adjust=False, prepost=True, actions=False)
             if df is not None and not df.empty and "Close" in df.columns:
                 s = df["Close"].dropna()
                 if not s.empty:
                     return round(float(s.iloc[-1]), 2)
-
-        # 3) yf.download as a last resort
         df2 = yf.download(ticker, period="5d", interval="1d", progress=False)
         if df2 is not None and not df2.empty and "Close" in df2.columns:
             s2 = df2["Close"].dropna()
             if not s2.empty:
                 return round(float(s2.iloc[-1]), 2)
-    except Exception:
-        pass
+    except: pass
     return None
 
 model, features, targets = load_model()
-df = load_history()
-historical_means = df[features].mean().to_dict()
+df_hist = load_history()
+historical_means = df_hist[features].mean().to_dict()
 
 if model is None:
-    st.error("model not found — run ml_model.py first")
+    st.error("Model not found — please run ml_model.py first.")
     st.stop()
 
 plot_theme = dict(
     plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="IBM Plex Mono", color="#484f58", size=11),
-    xaxis=dict(gridcolor="#1c2333", color="#484f58", linecolor="#1c2333"),
-    yaxis=dict(gridcolor="#1c2333", color="#484f58", linecolor="#1c2333"),
+    font=dict(family="IBM Plex Mono", color="#5a5d7a", size=11),
+    xaxis=dict(gridcolor="#1e2030", color="#5a5d7a", linecolor="#1e2030"),
+    yaxis=dict(gridcolor="#1e2030", color="#5a5d7a", linecolor="#1e2030"),
     margin=dict(t=40, b=20, l=10, r=10),
-    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#484f58", size=10))
+    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#5a5d7a", size=10))
 )
 
-# ── topbar ────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="topbar">
-    <div class="topbar-left">
-        <div class="logo">Biz<span> Shock</span></div>
-        <div class="tagline">COMMODITY SHOCK · BUSINESS IMPACT ANALYZER</div>
+# ── SESSION STATE ─────────────────────────────────────────────────────────────
+if "page" not in st.session_state:
+    st.session_state.page = "welcome"
+if "prediction_result" not in st.session_state:
+    st.session_state.prediction_result = None
+
+def go_to(page):
+    st.session_state.page = page
+    st.rerun()
+
+# ── NAVBAR ────────────────────────────────────────────────────────────────────
+steps = [("welcome", "01  Overview"), ("simulate", "02  Simulation"), ("recommend", "03  Recommendations")]
+current = st.session_state.page
+
+step_html = ""
+for key, label in steps:
+    idx_cur = [k for k, _ in steps].index(current)
+    idx_key = [k for k, _ in steps].index(key)
+    cls = "active" if key == current else ("done" if idx_key < idx_cur else "")
+    step_html += f"<div class='nav-step {cls}'>{label}</div>"
+
+st.markdown(f"""
+<div class='navbar'>
+    <div>
+        <div class='nav-brand'>Biz<span>Shock</span></div>
+        <div class='nav-tagline'>Commodity Shock &middot; Business Impact Analyzer</div>
     </div>
-    <div class="live-badge">● LIVE DATA</div>
+    <div class='nav-steps'>{step_html}</div>
+    <div class='live-dot'>Live Market Data</div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── sidebar ───────────────────────────────────────────────────────────────────
-st.sidebar.markdown("""
-<div style='font-family:"IBM Plex Mono",monospace;font-size:0.6rem;color:#484f58;
-letter-spacing:0.15em;text-transform:uppercase;border-bottom:1px solid #1c2333;
-padding-bottom:0.8rem;margin-bottom:1rem'>
-▸ Business Configuration
-</div>""", unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 1 — WELCOME
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.page == "welcome":
+    st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
 
-business_type = st.sidebar.selectbox("Business Type", get_all_profiles(), label_visibility="visible")
-profile = BUSINESS_PROFILES[business_type]
-st.sidebar.markdown(f"<div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;color:#484f58;margin:-0.5rem 0 1rem'>{profile['description']}</div>", unsafe_allow_html=True)
-st.sidebar.divider()
-scenario_name = st.sidebar.text_input("Scenario ID", value="scenario_01")
-analyze_btn = st.sidebar.button("▶ RUN ANALYSIS")
+    st.markdown("""
+    <div class='hero'>
+        <div class='hero-eyebrow'>Economic Intelligence Platform</div>
+        <div class='hero-title'>Welcome to <span>BizShock</span></div>
+        <div class='hero-subtitle'>
+            Understand how global commodity price shocks impact your business.
+            Powered by machine learning and live market data.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-# ── step 1: cost basket ───────────────────────────────────────────────────────
-st.markdown("<div class='sec-header'>01 — Cost Basket Configuration</div>", unsafe_allow_html=True)
+    col_l, col_c, col_r = st.columns([2, 1, 2])
+    with col_c:
+        if st.button("Begin Simulation  ▶"):
+            go_to("simulate")
+    st.markdown("<div class='cta-hint'>Configure your business profile and run a scenario prediction</div>", unsafe_allow_html=True)
 
-if business_type == "🛠 Custom":
-    if "custom_commodities" not in st.session_state:
-        st.session_state.custom_commodities = [{"name": "Crude Oil", "weight": 50}]
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
-    for i, row in enumerate(st.session_state.custom_commodities):
-        c1, c2, c3 = st.columns([3, 2, 1])
-        with c1:
-            name = st.selectbox("Commodity", list(ALL_COMMODITIES.keys()), key=f"name_{i}",
-                                index=list(ALL_COMMODITIES.keys()).index(row["name"]) if row["name"] in ALL_COMMODITIES else 0)
-            st.session_state.custom_commodities[i]["name"] = name
-        with c2:
-            weight = st.number_input("Weight %", 0, 100, row["weight"], key=f"weight_{i}")
-            st.session_state.custom_commodities[i]["weight"] = weight
-        with c3:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("✕", key=f"remove_{i}") and len(st.session_state.custom_commodities) > 1:
-                st.session_state.custom_commodities.pop(i)
-                st.rerun()
+    # Live prices
+    st.markdown("""
+    <div class='section-label'>Live Market Snapshot</div>
+    <div class='section-title'>Current Commodity Prices</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
 
-    if st.button("+ Add Commodity"):
-        st.session_state.custom_commodities.append({"name": "Wheat", "weight": 10})
-        st.rerun()
-
-    total_weight = sum(r["weight"] for r in st.session_state.custom_commodities)
-    color = "#3fb950" if total_weight == 100 else "#f85149"
-    st.markdown(f"<div style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:{color}'>Total weight: {total_weight}% {'✓' if total_weight==100 else '— must equal 100%'}</div>", unsafe_allow_html=True)
-
-    active_commodities = {}
-    for row in st.session_state.custom_commodities:
-        com = ALL_COMMODITIES.get(row["name"])
-        if com:
-            key = row["name"].upper().replace(" ", "_")
-            active_commodities[key] = {"ticker": com["ticker"], "weight": row["weight"] / 100}
-else:
-    active_commodities = profile["commodities"]
-    cols = st.columns(len(active_commodities))
-    for i, (commodity, info) in enumerate(active_commodities.items()):
-        with cols[i]:
-            new_weight = st.number_input(commodity.replace("_"," "), 0, 100, int(info["weight"]*100), key=f"w_{commodity}")
-            active_commodities[commodity]["weight"] = new_weight / 100
-
-# ── step 2: live prices ───────────────────────────────────────────────────────
-st.markdown("<div class='sec-header'>02 — Live Market Data</div>", unsafe_allow_html=True)
-
-live_prices = {}
-price_cols = st.columns(len(active_commodities))
-for i, (commodity, info) in enumerate(active_commodities.items()):
-    price = fetch_live_price(info["ticker"])
-    live_prices[commodity] = price
-    hist = historical_means.get(commodity, 0)
-
-    if price is None:
-        price_text = "N/A"
-        change_text = "no live data"
-        tag_color = "#484f58"  # muted
-    else:
-        price_text = f"${price:.2f}"
-        if hist:
-            change = ((price - hist) / hist * 100)
-            tag_color = "#f85149" if change > 5 else "#d29922" if change > 0 else "#3fb950"
-            arrow = "▲" if change > 0 else "▼"
-            change_text = f"{arrow} {abs(change):.1f}% vs hist avg"
+    key_tickers = {
+        "Crude Oil": ("CL=F", "CRUDE_OIL"),
+        "Natural Gas": ("NG=F", "NATURAL_GAS"),
+        "Wheat": ("ZW=F", "WHEAT"),
+        "Copper": ("HG=F", "COPPER"),
+        "Coffee": ("KC=F", "COFFEE"),
+        "Cotton": ("CT=F", "COTTON"),
+    }
+    pcols = st.columns(6)
+    for i, (name, (ticker, hist_key)) in enumerate(key_tickers.items()):
+        price = fetch_live_price(ticker)
+        hist = historical_means.get(hist_key, 0)
+        if price and hist:
+            chg = (price - hist) / hist * 100
+            arrow = "▲" if chg > 0 else "▼"
+            chg_color = "#f2655a" if chg > 5 else "#f0a23a" if chg > 0 else "#3ecf8e"
+            chg_str = f"{arrow} {abs(chg):.1f}%  vs  avg"
         else:
-            # No historical baseline; show price only
-            tag_color = "#484f58"
-            change_text = "baseline N/A"
-
-    with price_cols[i]:
-        st.markdown(f"""
-        <div class='pcard'>
-            <div class='pname'>{commodity.replace('_',' ')}</div>
-            <div class='pprice'>{price_text}</div>
-            <div class='pchange' style='color:{tag_color}'>{change_text}</div>
+            chg_color, chg_str = "#5a5d7a", "N / A"
+        price_str = f"${price:,.2f}" if price else "—"
+        pcols[i].markdown(f"""
+        <div class='price-card'>
+            <div class='price-label'>{name}</div>
+            <div class='price-value'>{price_str}</div>
+            <div class='price-change' style='color:{chg_color}'>{chg_str}</div>
         </div>""", unsafe_allow_html=True)
 
-# ── step 3: macro explorer ────────────────────────────────────────────────────
-st.markdown("<div class='sec-header'>03 — Historical Macro Indicators</div>", unsafe_allow_html=True)
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
-# Tab titles without abbreviations (use full names)
-tabs = st.tabs([t.split('(')[0].strip() for t in targets])
+    # Historical KPIs
+    st.markdown("""
+    <div class='section-label'>Historical Context</div>
+    <div class='section-title'>Key Economic Indicators</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
 
-for tab, target in zip(tabs, targets):
-    with tab:
-        fig = go.Figure()
-        series = df[target]
-        ymin, ymax = float(series.min()), float(series.max())
+    k1, k2, k3, k4 = st.columns(4)
+    kpis = [
+        ("Average Inflation", f"{df_hist['Inflation (CPI %)'].mean():.2f}%",
+         f"Historical Peak:  {df_hist['Inflation (CPI %)'].max():.2f}%", "accent-red"),
+        ("Average GDP Growth", f"{df_hist['GDP Growth (% Annual)'].mean():.2f}%",
+         f"Latest Reading:  {df_hist['GDP Growth (% Annual)'].iloc[-1]:.2f}%", "accent-green"),
+        ("Average Unemployment", f"{df_hist['Unemployment Rate (%)'].mean():.2f}%",
+         f"Historical Low:  {df_hist['Unemployment Rate (%)'].min():.2f}%", "accent-amber"),
+        ("Average Interest Rate", f"{df_hist['Interest Rate (Real, %)'].mean():.2f}%",
+         f"Latest Reading:  {df_hist['Interest Rate (Real, %)'].iloc[-1]:.2f}%", ""),
+    ]
+    for col, (label, value, sub, cls) in zip([k1, k2, k3, k4], kpis):
+        col.markdown(f"""
+        <div class='kpi-card {cls}'>
+            <div class='kpi-label'>{label}</div>
+            <div class='kpi-value'>{value}</div>
+            <div class='kpi-sub'>{sub}</div>
+        </div>""", unsafe_allow_html=True)
 
-        # main line
-        fig.add_trace(go.Scatter(
-            x=df.index, y=series, mode="lines",
-            line=dict(color="#58a6ff", width=1.5),
-            name=target
-        ))
-        # small markers for context
-        fig.add_trace(go.Scatter(
-            x=df.index, y=series, mode="markers",
-            marker=dict(size=4, color="#58a6ff", line=dict(color="#0d1117", width=1)),
-            showlegend=False
-        ))
+    st.markdown("<br>", unsafe_allow_html=True)
 
-        # Average band highlights: green below avg, red above avg
-        avg = float(series.mean())
-        fig.add_hrect(y0=ymin, y1=avg, fillcolor="rgba(63,185,80,0.06)", line_width=0, layer="below")
-        fig.add_hrect(y0=avg, y1=ymax, fillcolor="rgba(248,81,73,0.06)", line_width=0, layer="below")
+    # Historical charts
+    st.markdown("""
+    <div class='section-label'>Macro Trend Explorer</div>
+    <div class='section-title'>Historical Indicator Charts</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
 
-        # Mean reference line
-        fig.add_hline(y=avg, line_dash="dot", line_color="#2a3444", line_width=1,
-                      annotation_text=f"μ {avg:.2f}%",
-                      annotation_font=dict(color="#484f58", size=10, family="IBM Plex Mono"))
+    tab_labels = [t.split("(")[0].strip() for t in targets]
+    tabs = st.tabs(tab_labels)
+    for tab, target in zip(tabs, targets):
+        with tab:
+            series = df_hist[target]
+            avg = float(series.mean())
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=df_hist.index, y=series, mode="lines",
+                line=dict(color="#c9a84c", width=1.5), name=target,
+                fill="tozeroy", fillcolor="rgba(201,168,76,0.06)"
+            ))
+            fig.add_trace(go.Scatter(
+                x=df_hist.index, y=series, mode="markers",
+                marker=dict(size=4, color="#c9a84c", line=dict(color="#09090e", width=1)),
+                showlegend=False
+            ))
+            fig.add_hline(y=avg, line_dash="dot", line_color="#2a2d44", line_width=1,
+                          annotation_text=f"  Mean:  {avg:.2f}%",
+                          annotation_font=dict(color="#5a5d7a", size=10, family="IBM Plex Mono"))
+            last_x, last_y = series.index[-1], float(series.iloc[-1])
+            fig.add_trace(go.Scatter(
+                x=[last_x], y=[last_y], mode="markers",
+                marker=dict(size=9, color="#c9a84c", line=dict(color="#fff", width=1.5)),
+                showlegend=False
+            ))
+            fig.update_layout(**plot_theme, height=300)
+            st.plotly_chart(fig, use_container_width=True)
 
-        # Emphasize the latest point
-        last_x = series.index[-1]
-        last_y = float(series.iloc[-1])
-        fig.add_trace(
-            go.Scatter(x=[last_x], y=[last_y], mode="markers",
-                       marker=dict(size=8, color="#58a6ff", line=dict(color="#ffffff", width=1.5)),
-                       showlegend=False, hoverinfo="skip")
-        )
-        fig.update_layout(**plot_theme, height=280)
-        st.plotly_chart(fig, use_container_width=True)
+            sc1, sc2, sc3, sc4 = st.columns(4)
+            stats = [
+                ("Mean", f"{series.mean():.2f}%", ""),
+                ("Peak", f"{series.max():.2f}%", "accent-red"),
+                ("Trough", f"{series.min():.2f}%", "accent-green"),
+                ("Latest", f"{series.iloc[-1]:.2f}%", ""),
+            ]
+            for scol, (slabel, sval, scls) in zip([sc1, sc2, sc3, sc4], stats):
+                scol.markdown(f"""
+                <div class='kpi-card {scls}' style='padding:1rem 1.25rem'>
+                    <div class='kpi-label'>{slabel}</div>
+                    <div class='kpi-value' style='font-size:1.5rem'>{sval}</div>
+                </div>""", unsafe_allow_html=True)
 
-        s1, s2, s3, s4 = st.columns(4)
-        stats = [
-            ("AVG", f"{df[target].mean():.2f}%", "neutral"),
-            ("PEAK", f"{df[target].max():.2f}%", "up"),
-            ("LOW", f"{df[target].min():.2f}%", "down"),
-            ("LATEST", f"{df[target].iloc[-1]:.2f}%", "neutral"),
-        ]
-        for col, (label, val, cls) in zip([s1,s2,s3,s4], stats):
-            col.markdown(f"""
-            <div class='mcard {cls}'>
-                <div class='mlabel'>{label}</div>
-                <div class='mvalue' style='font-size:1.6rem'>{val}</div>
-            </div>""", unsafe_allow_html=True)
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='ornament'>── ◆ ──</div>", unsafe_allow_html=True)
 
-# ── step 4: analysis ──────────────────────────────────────────────────────────
-st.markdown("<div class='sec-header'>04 — Business Impact Analysis</div>", unsafe_allow_html=True)
+    col_l2, col_c2, col_r2 = st.columns([2, 1, 2])
+    with col_c2:
+        if st.button("Predict Your Simulation  ▶"):
+            go_to("simulate")
+    st.markdown("<div class='cta-hint'>Proceed to configure your business and run a custom scenario</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-if analyze_btn:
-    # Use live price when available; otherwise fall back to historical mean
-    input_data  = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
-    input_df    = pd.DataFrame([input_data])[features]
-    prediction  = model.predict(input_df)[0]
-    result      = dict(zip(targets, prediction))
 
-    baseline_df = pd.DataFrame([{f: historical_means.get(f, 0) for f in features}])
-    baseline    = dict(zip(targets, model.predict(baseline_df)[0]))
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 2 — SIMULATION
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "simulate":
+    st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
 
-    cost_impact, breakdown = calculate_cost_impact(active_commodities, live_prices, historical_means)
-    translation = translate(result, business_type, cost_impact)
-    verdict_text, verdict_desc, verdict_color = translation["verdict"]
+    col_back, _ = st.columns([1, 5])
+    with col_back:
+        if st.button("← Back to Overview"):
+            go_to("welcome")
 
-    # verdict
-    verdict_icon = "🔴" if "Tough" in verdict_text else "🟡" if "Caution" in verdict_text else "🟢"
+    st.markdown("""
+    <div class='section-label'>Business Simulation</div>
+    <div class='section-title'>Configure Your Scenario</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
+
+    cfg1, cfg2 = st.columns([2, 1])
+    with cfg1:
+        business_type = st.selectbox("Business Type", get_all_profiles(), index=0)
+    with cfg2:
+        scenario_name = st.text_input("Scenario Label", value="scenario_01")
+
+    profile = BUSINESS_PROFILES[business_type]
     st.markdown(f"""
-    <div class='verdict'>
-        <div class='verdict-icon'>{verdict_icon}</div>
-        <div>
-            <div class='verdict-title' style='color:{verdict_color}'>{verdict_text}</div>
-            <div class='verdict-desc'>{verdict_desc}</div>
-        </div>
+    <div style='font-family:IBM Plex Mono,monospace;font-size:0.62rem;color:#5a5d7a;
+    margin-top:-0.5rem;margin-bottom:1.5rem;letter-spacing:0.06em'>
+    Profile description:  {profile["description"]}
     </div>""", unsafe_allow_html=True)
 
-    # macro predictions
-    st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;color:#484f58;letter-spacing:0.12em;margin:1.5rem 0 0.8rem'>PREDICTED MACRO INDICATORS</div>", unsafe_allow_html=True)
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class='section-label'>Cost Basket</div>
+    <div class='section-title'>Commodity Exposure Weights</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
+
+    if business_type == "🛠 Custom":
+        if "custom_commodities" not in st.session_state:
+            st.session_state.custom_commodities = [{"name": "Crude Oil", "weight": 50}]
+        for i, row in enumerate(st.session_state.custom_commodities):
+            cc1, cc2, cc3 = st.columns([3, 2, 1])
+            with cc1:
+                name = st.selectbox("Commodity", list(ALL_COMMODITIES.keys()), key=f"name_{i}",
+                                    index=list(ALL_COMMODITIES.keys()).index(row["name"]) if row["name"] in ALL_COMMODITIES else 0)
+                st.session_state.custom_commodities[i]["name"] = name
+            with cc2:
+                weight = st.number_input("Weight (%)", 0, 100, row["weight"], key=f"weight_{i}")
+                st.session_state.custom_commodities[i]["weight"] = weight
+            with cc3:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Remove", key=f"remove_{i}") and len(st.session_state.custom_commodities) > 1:
+                    st.session_state.custom_commodities.pop(i)
+                    st.rerun()
+        if st.button("+ Add Commodity"):
+            st.session_state.custom_commodities.append({"name": "Wheat", "weight": 10})
+            st.rerun()
+        total_weight = sum(r["weight"] for r in st.session_state.custom_commodities)
+        color = "#3ecf8e" if total_weight == 100 else "#f2655a"
+        st.markdown(f"<div style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:{color};margin-top:0.5rem'>Total weight:  {total_weight}%  {'✓  Correct' if total_weight==100 else '—  Must equal 100%'}</div>", unsafe_allow_html=True)
+        active_commodities = {}
+        for row in st.session_state.custom_commodities:
+            com = ALL_COMMODITIES.get(row["name"])
+            if com:
+                key = row["name"].upper().replace(" ", "_")
+                active_commodities[key] = {"ticker": com["ticker"], "weight": row["weight"] / 100}
+    else:
+        active_commodities = dict(profile["commodities"])
+        wcols = st.columns(len(active_commodities))
+        for i, (commodity, info) in enumerate(active_commodities.items()):
+            with wcols[i]:
+                new_weight = st.number_input(
+                    commodity.replace("_", " ").title(),
+                    0, 100, int(info["weight"] * 100), key=f"w_{commodity}"
+                )
+                active_commodities[commodity]["weight"] = new_weight / 100
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class='section-label'>Live Market Data</div>
+    <div class='section-title'>Current Input Commodity Prices</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
+
+    live_prices = {}
+    lp_cols = st.columns(len(active_commodities))
+    for i, (commodity, info) in enumerate(active_commodities.items()):
+        price = fetch_live_price(info["ticker"])
+        live_prices[commodity] = price
+        hist = historical_means.get(commodity, 0)
+        if price is None:
+            price_str, chg_str, chg_color = "N / A", "No live data available", "#5a5d7a"
+        else:
+            price_str = f"${price:,.2f}"
+            if hist:
+                chg = (price - hist) / hist * 100
+                arrow = "▲" if chg > 0 else "▼"
+                chg_color = "#f2655a" if chg > 5 else "#f0a23a" if chg > 0 else "#3ecf8e"
+                chg_str = f"{arrow}  {abs(chg):.1f}%  vs  historical avg"
+            else:
+                chg_str, chg_color = "Baseline unavailable", "#5a5d7a"
+        with lp_cols[i]:
+            st.markdown(f"""
+            <div class='price-card'>
+                <div class='price-label'>{commodity.replace("_", " ").title()}</div>
+                <div class='price-value'>{price_str}</div>
+                <div class='price-change' style='color:{chg_color}'>{chg_str}</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    col_l, col_c, col_r = st.columns([2, 1, 2])
+    with col_c:
+        run_btn = st.button("Run Prediction  ▶")
+
+    if run_btn:
+        input_data = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
+        input_df = pd.DataFrame([input_data])[features]
+        prediction = model.predict(input_df)[0]
+        result = dict(zip(targets, prediction))
+
+        baseline_df = pd.DataFrame([{f: historical_means.get(f, 0) for f in features}])
+        baseline = dict(zip(targets, model.predict(baseline_df)[0]))
+
+        cost_impact, breakdown = calculate_cost_impact(active_commodities, live_prices, historical_means)
+        translation = translate(result, business_type, cost_impact)
+
+        st.session_state.prediction_result = {
+            "result": result, "baseline": baseline,
+            "cost_impact": cost_impact, "breakdown": breakdown,
+            "translation": translation, "business_type": business_type,
+            "scenario_name": scenario_name, "live_prices": live_prices,
+            "active_commodities": active_commodities,
+        }
+
+        os.makedirs(RESULTS_DIR, exist_ok=True)
+        out = {
+            "business": business_type, "scenario": scenario_name,
+            "live_prices": live_prices, "predictions": result,
+            "baseline": baseline, "cost_impact_pct": cost_impact,
+            "verdict": translation["verdict"][0]
+        }
+        json.dump(out, open(os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json"), "w"), indent=2)
+        go_to("recommend")
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 3 — RECOMMENDATIONS
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "recommend":
+    if st.session_state.prediction_result is None:
+        st.warning("No prediction found. Please run a simulation first.")
+        col_l, col_c, col_r = st.columns([2, 1, 2])
+        with col_c:
+            if st.button("Go to Simulation  ▶"):
+                go_to("simulate")
+        st.stop()
+
+    pr            = st.session_state.prediction_result
+    result        = pr["result"]
+    baseline      = pr["baseline"]
+    cost_impact   = pr["cost_impact"]
+    breakdown     = pr["breakdown"]
+    translation   = pr["translation"]
+    business_type = pr["business_type"]
+    scenario_name = pr["scenario_name"]
+    live_prices   = pr["live_prices"]
+    active_commodities = pr["active_commodities"]
+    verdict_text, verdict_desc, verdict_color = translation["verdict"]
+
+    st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
+
+    col_back, _ = st.columns([1, 5])
+    with col_back:
+        if st.button("← Back to Simulation"):
+            go_to("simulate")
+
+    st.markdown(f"""
+    <div class='section-label'>Analysis Complete &nbsp;&middot;&nbsp; {business_type} &nbsp;&middot;&nbsp; {scenario_name}</div>
+    <div class='section-title'>Strategic Recommendations</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
+
+    # Verdict
+    verdict_icon = "🔴" if "Tough" in verdict_text else "🟡" if "Caution" in verdict_text else "🟢"
+    st.markdown(f"""
+    <div class='verdict-card'>
+        <div style='font-size:2.5rem;line-height:1'>{verdict_icon}</div>
+        <div>
+            <div class='verdict-title' style='color:{verdict_color}'>{verdict_text}</div>
+            <div class='verdict-body'>{verdict_desc}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    # Predicted KPIs
+    st.markdown("""
+    <div class='section-label'>Predicted Outcomes</div>
+    <div class='section-title'>Macro Indicator Forecast</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
+
     res_cols = st.columns(len(targets))
     for i, (target, value) in enumerate(result.items()):
-        diff  = value - baseline[target]
+        diff = value - baseline[target]
         arrow = "▲" if diff > 0 else "▼"
-        color = "#f85149" if diff > 0 and target != "GDP Growth (% Annual)" else "#3fb950"
-        cls   = "up" if diff > 0 else "down"
+        is_bad = (diff > 0 and target != "GDP Growth (% Annual)") or (diff < 0 and target == "GDP Growth (% Annual)")
+        diff_color = "#f2655a" if is_bad else "#3ecf8e"
+        cls = "accent-red" if is_bad else "accent-green"
         with res_cols[i]:
             st.markdown(f"""
-            <div class='mcard {cls}'>
-                <div class='mlabel'>{target.split("(")[0].strip()}</div>
-                <div class='mvalue'>{value:.1f}%</div>
-                <div class='msub' style='color:{color}'>{arrow} {abs(diff):.2f}pp vs baseline</div>
+            <div class='kpi-card {cls}'>
+                <div class='kpi-label'>{target.split("(")[0].strip()}</div>
+                <div class='kpi-value'>{value:.1f}%</div>
+                <div class='kpi-sub' style='color:{diff_color}'>{arrow}  {abs(diff):.2f} pp  vs  baseline</div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # cost breakdown + chart side by side
-    col_left, col_right = st.columns([1, 1])
-
-    with col_left:
-        st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;color:#484f58;letter-spacing:0.12em;margin-bottom:0.8rem'>COST IMPACT BREAKDOWN</div>", unsafe_allow_html=True)
-        if breakdown:
-            bd_df = pd.DataFrame(breakdown).T.reset_index()
-            bd_df.columns = ["commodity", "live $", "hist avg", "Δ%", "weight", "impact%"]
-            st.dataframe(bd_df.style.format({"live $": "{:.2f}", "hist avg": "{:.2f}", "Δ%": "{:+.1f}", "weight": "{:.0%}", "impact%": "{:+.2f}"}), use_container_width=True, hide_index=True)
-            color = "#f85149" if cost_impact > 10 else "#d29922" if cost_impact > 0 else "#3fb950"
-            st.markdown(f"<div style='font-family:IBM Plex Mono,monospace;font-size:0.75rem;color:{color};margin-top:0.5rem'>TOTAL COST IMPACT: {cost_impact:+.1f}%</div>", unsafe_allow_html=True)
-
-    with col_right:
-        st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;color:#484f58;letter-spacing:0.12em;margin-bottom:0.8rem'>SCENARIO vs BASELINE</div>", unsafe_allow_html=True)
-        fig = go.Figure()
+    # Chart + breakdown
+    ch_left, ch_right = st.columns(2)
+    with ch_left:
+        st.markdown("""
+        <div class='section-label'>Visual Comparison</div>
+        <div class='section-title' style='font-size:1.2rem'>Scenario vs Baseline</div>
+        <div class='section-divider'></div>
+        """, unsafe_allow_html=True)
         short = [t.split("(")[0].strip() for t in targets]
-        fig.add_trace(go.Bar(name="baseline", x=short, y=[baseline[t] for t in targets],
-                             marker_color="#1c2333", marker_line_color="#2a3444", marker_line_width=1))
-        fig.add_trace(go.Bar(name="current", x=short, y=[result[t] for t in targets],
-                             marker_color="#58a6ff", marker_line_color="#58a6ff", marker_line_width=0))
-        fig.update_layout(**plot_theme, barmode="group", height=260)
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            name="Baseline", x=short, y=[baseline[t] for t in targets],
+            marker_color="#1e2030", marker_line_color="#2a2d44", marker_line_width=1
+        ))
+        fig.add_trace(go.Bar(
+            name="Scenario", x=short, y=[result[t] for t in targets],
+            marker_color="#c9a84c", marker_line_color="#c9a84c", marker_line_width=0
+        ))
+        fig.update_layout(**plot_theme, barmode="group", height=280)
         st.plotly_chart(fig, use_container_width=True)
 
-    # insights
-    st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;color:#484f58;letter-spacing:0.12em;margin:1.5rem 0 0.6rem'>MARKET SIGNALS</div>", unsafe_allow_html=True)
-    for insight in translation["insights"]:
-        emoji = insight[0]
-        tag = "RISK" if "🔴" in insight else "WATCH" if "🟡" in insight else "OK"
-        tag_cls = "tag-red" if "🔴" in insight else "tag-yellow" if "🟡" in insight else "tag-green"
-        text = insight[2:].strip()
-        st.markdown(f"<div class='insight-row'><span class='tag {tag_cls}'>{tag}</span>{text}</div>", unsafe_allow_html=True)
+    with ch_right:
+        st.markdown("""
+        <div class='section-label'>Cost Analysis</div>
+        <div class='section-title' style='font-size:1.2rem'>Input Cost Impact</div>
+        <div class='section-divider'></div>
+        """, unsafe_allow_html=True)
+        if breakdown:
+            bd_df = pd.DataFrame(breakdown).T.reset_index()
+            bd_df.columns = ["Commodity", "Live Price", "Hist. Avg", "Change %", "Weight", "Impact %"]
+            st.dataframe(
+                bd_df.style.format({
+                    "Live Price": "{:.2f}", "Hist. Avg": "{:.2f}",
+                    "Change %": "{:+.1f}", "Weight": "{:.0%}", "Impact %": "{:+.2f}"
+                }),
+                use_container_width=True, hide_index=True
+            )
+            imp_color = "#f2655a" if cost_impact > 10 else "#f0a23a" if cost_impact > 0 else "#3ecf8e"
+            st.markdown(f"""
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.72rem;
+            color:{imp_color};margin-top:0.75rem;letter-spacing:0.06em'>
+            Total Input Cost Impact:  {cost_impact:+.1f}%
+            </div>""", unsafe_allow_html=True)
 
-    st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;color:#484f58;letter-spacing:0.12em;margin:1.5rem 0 0.6rem'>RECOMMENDED ACTIONS</div>", unsafe_allow_html=True)
-    for i, action in enumerate(translation["actions"], 1):
-        text = action[2:].strip()
-        st.markdown(f"<div class='action-row'><span class='action-num'>{i:02d}</span>{text}</div>", unsafe_allow_html=True)
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
-    # save
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-    out = {"business": business_type, "scenario": scenario_name, "live_prices": live_prices,
-           "predictions": result, "baseline": baseline, "cost_impact_pct": cost_impact, "verdict": verdict_text}
-    json.dump(out, open(os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json"), "w"), indent=2)
-    st.markdown(f"<div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;color:#3fb950;margin-top:1rem'>✓ saved → output/results/{scenario_name}_prediction.json</div>", unsafe_allow_html=True)
+    # Insights + Actions
+    col_ins, col_act = st.columns(2)
+    with col_ins:
+        st.markdown("""
+        <div class='section-label'>Market Signals</div>
+        <div class='section-title' style='font-size:1.2rem'>Key Risk Indicators</div>
+        <div class='section-divider'></div>
+        """, unsafe_allow_html=True)
+        for insight in translation["insights"]:
+            tag = "RISK" if "🔴" in insight else "WATCH" if "🟡" in insight else "STABLE"
+            tag_cls = "tag-risk" if "🔴" in insight else "tag-watch" if "🟡" in insight else "tag-stable"
+            text = insight[2:].strip().replace("**", "")
+            st.markdown(f"""
+            <div class='insight-row'>
+                <span class='signal-tag {tag_cls}'>{tag}</span>
+                {text}
+            </div>""", unsafe_allow_html=True)
 
-else:
+    with col_act:
+        st.markdown("""
+        <div class='section-label'>Action Plan</div>
+        <div class='section-title' style='font-size:1.2rem'>Recommended Actions</div>
+        <div class='section-divider'></div>
+        """, unsafe_allow_html=True)
+        for i, action in enumerate(translation["actions"], 1):
+            text = action[2:].strip()
+            st.markdown(f"""
+            <div class='action-row'>
+                <span class='action-num'>{i:02d}</span>
+                {text}
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    # Scenario history
     st.markdown("""
-    <div style='border:1px dashed #1c2333;border-radius:6px;padding:3rem;text-align:center;margin:1rem 0'>
-        <div style='font-family:Bebas Neue,sans-serif;font-size:1.4rem;color:#2a3444;letter-spacing:0.1em'>
-            SELECT YOUR BUSINESS TYPE AND RUN ANALYSIS
-        </div>
-        <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;color:#2a3444;margin-top:0.5rem'>
-            configure cost basket → fetch live prices → predict impact
-        </div>
-    </div>""", unsafe_allow_html=True)
+    <div class='section-label'>Scenario History</div>
+    <div class='section-title'>Previous Simulations</div>
+    <div class='section-divider'></div>
+    """, unsafe_allow_html=True)
+    files = [f for f in os.listdir(RESULTS_DIR) if f.endswith("_prediction.json")] if os.path.exists(RESULTS_DIR) else []
+    if files:
+        rows = []
+        for f in files:
+            data = json.load(open(os.path.join(RESULTS_DIR, f)))
+            row = {
+                "Scenario": data.get("scenario", ""), "Business": data.get("business", ""),
+                "Verdict": data.get("verdict", ""), "Cost Δ %": data.get("cost_impact_pct", 0)
+            }
+            row.update(data.get("predictions", {}))
+            rows.append(row)
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    else:
+        st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#3a3d55;padding:1.25rem 0'>No prior simulations saved.</div>", unsafe_allow_html=True)
 
-# ── saved scenarios ───────────────────────────────────────────────────────────
-st.markdown("<div class='sec-header'>05 — Saved Scenarios</div>", unsafe_allow_html=True)
-files = [f for f in os.listdir(RESULTS_DIR) if f.endswith("_prediction.json")] if os.path.exists(RESULTS_DIR) else []
-if files:
-    rows = []
-    for f in files:
-        data = json.load(open(os.path.join(RESULTS_DIR, f)))
-        row = {"scenario": data.get("scenario",""), "business": data.get("business",""),
-               "verdict": data.get("verdict",""), "cost Δ%": data.get("cost_impact_pct",0)}
-        row.update(data.get("predictions", {}))
-        rows.append(row)
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-else:
-    st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#2a3444;padding:1rem 0'>no saved scenarios — run an analysis above</div>", unsafe_allow_html=True)
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='ornament'>── ◆ ──</div>", unsafe_allow_html=True)
+
+    col_l, col_c, col_r = st.columns([2, 1, 2])
+    with col_c:
+        if st.button("Run Another Simulation  ▶"):
+            st.session_state.prediction_result = None
+            go_to("simulate")
+    st.markdown("<div class='cta-hint'>Return to configure a new business scenario</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
