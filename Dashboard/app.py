@@ -493,7 +493,31 @@ if st.session_state.page == "welcome":
         if st.button("Predict Your Simulation  ▶"):
             go_to("simulate")
     st.markdown("<div class='cta-hint'>Proceed to configure your business and run a custom scenario</div>", unsafe_allow_html=True)
+    # ── No simulation yet — show empty state ──────────────────────────────────
+    if st.session_state.prediction_result is None:
+        st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style='
+            text-align: center;
+            padding: 3rem 2rem;
+            border: 1px dashed #2a2d44;
+            border-radius: 4px;
+            margin-top: 1rem;
+        '>
+            <div style='font-size:2rem;margin-bottom:1rem'>📊</div>
+            <div style='font-family:Playfair Display,serif;font-size:1.2rem;color:#fff;margin-bottom:0.5rem'>
+                No Simulation Run Yet
+            </div>
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
+            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8'>
+                Configure your business profile above and press<br>
+                <span style='color:#c9a84c'>Run Prediction  ▶</span>  to see results here.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -664,13 +688,38 @@ elif st.session_state.page == "simulate":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — RECOMMENDATIONS
 # ══════════════════════════════════════════════════════════════════════════════
-elif st.session_state.page == "recommend":
     if st.session_state.prediction_result is None:
-        st.warning("No prediction found. Please run a simulation first.")
+        st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='section-label'>Recommendations</div>
+        <div class='section-title'>Strategic Recommendations</div>
+        <div class='section-divider'></div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div style='
+            text-align: center;
+            padding: 4rem 2rem;
+            border: 1px dashed #2a2d44;
+            border-radius: 4px;
+            margin-top: 1rem;
+        '>
+            <div style='font-size:2.5rem;margin-bottom:1rem'>🔍</div>
+            <div style='font-family:Playfair Display,serif;font-size:1.4rem;color:#fff;margin-bottom:0.75rem'>
+                No Analysis Available
+            </div>
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
+            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8;margin-bottom:2rem'>
+                You have not run a simulation yet.<br>
+                Head to the Simulation page to configure your business and generate recommendations.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         col_l, col_c, col_r = st.columns([2, 1, 2])
         with col_c:
             if st.button("Go to Simulation  ▶"):
                 go_to("simulate")
+        st.markdown("</div>", unsafe_allow_html=True)
         st.stop()
 
     pr                 = st.session_state.prediction_result
