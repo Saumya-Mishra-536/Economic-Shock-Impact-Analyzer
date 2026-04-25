@@ -235,17 +235,17 @@ def add_video_background():
         transform: translate(-50%, -50%);
         min-width: 100vw; min-height: 100vh;
         width: auto; height: auto; object-fit: cover;
-        opacity: 0.28;
-        filter: saturate(0.4) brightness(0.5) hue-rotate(5deg);
+        opacity: 0.55;
+        filter: saturate(0.7) brightness(0.8) hue-rotate(5deg);
     }}
     .video-bg-overlay {{
         position: fixed; inset: 0; z-index: 1; pointer-events: none;
         background:
-            linear-gradient(180deg,
-                rgba(9,9,14,0.70) 0%, rgba(9,9,14,0.30) 35%,
-                rgba(9,9,14,0.30) 65%, rgba(9,9,14,0.75) 100%),
-            radial-gradient(ellipse 80% 60% at 50% 50%,
-                transparent 30%, rgba(9,9,14,0.35) 100%);
+    linear-gradient(180deg,
+        rgba(9,9,14,0.55) 0%, rgba(9,9,14,0.15) 35%,
+        rgba(9,9,14,0.15) 65%, rgba(9,9,14,0.60) 100%),
+    radial-gradient(ellipse 80% 60% at 50% 50%,
+        transparent 30%, rgba(9,9,14,0.20) 100%);
     }}
     .navbar, .page-wrapper,
     [data-testid="stAppViewContainer"] > section > div {{
