@@ -39,7 +39,57 @@ st.markdown("""
 }
 
 * { font-family: 'Source Sans 3', sans-serif; box-sizing: border-box; }
-.stApp { background: var(--bg); color: var(--text); }
+.stApp {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.stApp::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+
+    background:
+        /* top-left gold radial glow */
+        radial-gradient(ellipse 60% 40% at 10% 10%,
+            rgba(201,168,76,0.07) 0%, transparent 70%),
+
+        /* center-right warm glow */
+        radial-gradient(ellipse 50% 50% at 90% 50%,
+            rgba(201,168,76,0.04) 0%, transparent 65%),
+
+        /* bottom-left cool depth */
+        radial-gradient(ellipse 70% 40% at 5% 95%,
+            rgba(91,143,249,0.04) 0%, transparent 70%),
+
+        /* fine diagonal line grid */
+        repeating-linear-gradient(
+            135deg,
+            transparent,
+            transparent 60px,
+            rgba(201,168,76,0.025) 60px,
+            rgba(201,168,76,0.025) 61px
+        ),
+
+        /* horizontal rule grid */
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 80px,
+            rgba(255,255,255,0.012) 80px,
+            rgba(255,255,255,0.012) 81px
+        );
+}
+
+/* lift all content above the bg layer */
+.navbar,
+.page-wrapper,
+[data-testid="stAppViewContainer"] > * {
+    position: relative;
+    z-index: 1;
+}
 
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stDecoration"] { display: none; }
