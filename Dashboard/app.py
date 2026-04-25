@@ -39,57 +39,7 @@ st.markdown("""
 }
 
 * { font-family: 'Source Sans 3', sans-serif; box-sizing: border-box; }
-.stApp {
-    background: var(--bg);
-    color: var(--text);
-}
-
-.stApp::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-
-    background:
-        /* top-left gold radial glow */
-        radial-gradient(ellipse 60% 40% at 10% 10%,
-            rgba(201,168,76,0.07) 0%, transparent 70%),
-
-        /* center-right warm glow */
-        radial-gradient(ellipse 50% 50% at 90% 50%,
-            rgba(201,168,76,0.04) 0%, transparent 65%),
-
-        /* bottom-left cool depth */
-        radial-gradient(ellipse 70% 40% at 5% 95%,
-            rgba(91,143,249,0.04) 0%, transparent 70%),
-
-        /* fine diagonal line grid */
-        repeating-linear-gradient(
-            135deg,
-            transparent,
-            transparent 60px,
-            rgba(201,168,76,0.025) 60px,
-            rgba(201,168,76,0.025) 61px
-        ),
-
-        /* horizontal rule grid */
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 80px,
-            rgba(255,255,255,0.012) 80px,
-            rgba(255,255,255,0.012) 81px
-        );
-}
-
-/* lift all content above the bg layer */
-.navbar,
-.page-wrapper,
-[data-testid="stAppViewContainer"] > * {
-    position: relative;
-    z-index: 1;
-}
+.stApp { background: var(--bg); color: var(--text); }
 
 #MainMenu, footer, header { visibility: hidden; }
 [data-testid="stDecoration"] { display: none; }
@@ -247,6 +197,65 @@ hr { border-color: var(--border) !important; }
 .ornament { text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.3em; color: var(--muted2); margin: 2rem 0; }
 </style>
 """, unsafe_allow_html=True)
+
+# ── VIDEO BACKGROUND ─────────────────────────────────────────────────────────
+def add_video_background():
+    import base64
+    video_path = os.path.join(os.path.dirname(__file__), "bg.mp4")
+    if not os.path.exists(video_path):
+        return
+    with open(video_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    st.markdown(f"""
+    <style>
+    .video-bg-wrap {{
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }}
+    .video-bg-wrap video {{
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 100vw; min-height: 100vh;
+        width: auto; height: auto;
+        object-fit: cover;
+        opacity: 0.22;
+        filter: saturate(0.5) brightness(0.65) hue-rotate(5deg);
+    }}
+    .video-bg-overlay {{
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+            linear-gradient(180deg,
+                rgba(9,9,14,0.80) 0%,
+                rgba(9,9,14,0.50) 35%,
+                rgba(9,9,14,0.50) 65%,
+                rgba(9,9,14,0.88) 100%),
+            radial-gradient(ellipse 80% 60% at 50% 50%,
+                transparent 30%, rgba(9,9,14,0.55) 100%);
+    }}
+    /* lift all UI above video layers */
+    .navbar,
+    .page-wrapper,
+    [data-testid="stAppViewContainer"] > section > div {{
+        position: relative;
+        z-index: 2;
+    }}
+    </style>
+    <div class="video-bg-wrap">
+        <video autoplay muted loop playsinline>
+            <source src="data:video/mp4;base64,{b64}" type="video/mp4">
+        </video>
+    </div>
+    <div class="video-bg-overlay"></div>
+    """, unsafe_allow_html=True)
+
+add_video_background()
 
 # ── LOAD ─────────────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -602,31 +611,6 @@ elif st.session_state.page == "simulate":
     col_l, col_c, col_r = st.columns([2, 1, 2])
     with col_c:
         run_btn = st.button("Run Prediction  ▶")
-
-    # ── Duplicate scenario name check ─────────────────────────────────────────
-    existing_file = os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json")
-    if run_btn and os.path.exists(existing_file):
-        st.markdown(f"""
-        <div style='
-            background: rgba(242,101,90,0.08);
-            border: 1px solid rgba(242,101,90,0.35);
-            border-left: 3px solid #f2655a;
-            border-radius: 3px;
-            padding: 1rem 1.5rem;
-            margin-top: 1rem;
-            font-family: IBM Plex Mono, monospace;
-        '>
-            <div style='color:#f2655a;font-size:0.65rem;letter-spacing:0.18em;
-            text-transform:uppercase;margin-bottom:0.35rem'>
-                ⚠ Scenario Name Already Exists
-            </div>
-            <div style='color:#e2e4f0;font-size:0.85rem;line-height:1.6'>
-                A scenario named <strong>"{scenario_name}"</strong> has already been saved.
-                Please choose a different label in the <em>Scenario Label</em> field above and run again.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        run_btn = False   
 
     if run_btn:
         input_data = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
