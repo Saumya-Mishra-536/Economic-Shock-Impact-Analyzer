@@ -1,4 +1,4 @@
-import os, json, pickle, sys, base64
+import os, json, pickle, sys
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -16,19 +16,6 @@ RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "results")
 
 st.set_page_config(page_title="BizShock", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 
-# ── SESSION STATE — must be initialized BEFORE anything that reads it ─────────
-if "page" not in st.session_state:
-    st.session_state.page = "welcome"
-if "prediction_result" not in st.session_state:
-    st.session_state.prediction_result = None
-if "custom_commodities" not in st.session_state:
-    st.session_state.custom_commodities = [{"name": "Crude Oil", "weight": 50}]
-
-def go_to(page):
-    st.session_state.page = page
-    st.rerun()
-
-# ── GLOBAL STYLES ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
@@ -111,8 +98,7 @@ section[data-testid="stSidebarContent"] { display: none; }
 }
 .hero-title span { color: var(--gold); }
 .hero-subtitle {
-    font-size: 1.1rem; color: var(--muted); max-width: 560px;
-    margin: 0 auto 3rem; line-height: 1.7; font-weight: 300;
+    font-size: 1.1rem; color: var(--muted); max-width: 560px; margin: 0 auto 3rem; line-height: 1.7; font-weight: 300;
 }
 
 .section-label {
@@ -193,20 +179,15 @@ section[data-testid="stSidebarContent"] { display: none; }
     border-radius: 3px !important; color: var(--text) !important;
     font-family: 'IBM Plex Mono', monospace !important; font-size: 0.85rem !important;
 }
-.stNumberInput input:focus, .stTextInput input:focus {
-    border-color: var(--gold) !important; box-shadow: 0 0 0 2px rgba(201,168,76,0.1) !important;
-}
+.stNumberInput input:focus, .stTextInput input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 2px rgba(201,168,76,0.1) !important; }
 .stNumberInput label, .stTextInput label, .stSelectbox label {
     font-family: 'IBM Plex Mono', monospace !important; font-size: 0.6rem !important;
     letter-spacing: 0.15em !important; text-transform: uppercase !important; color: var(--muted) !important;
 }
-.stSelectbox > div > div {
-    background: var(--surface2) !important; border: 1px solid var(--border2) !important;
-    border-radius: 3px !important; color: var(--text) !important;
-}
+.stSelectbox > div > div { background: var(--surface2) !important; border: 1px solid var(--border2) !important; border-radius: 3px !important; color: var(--text) !important; }
 
 .stTabs [data-baseweb="tab-list"] { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 3px; gap: 2px; }
-.stTabs [data-baseweb="tab"] { background: transparent !important; color: var(--muted) !important; border-radius: 2px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.65rem !important; letter-spacing: 0.08em !important; padding: 0.4rem 1.2rem !important; margin: 0 2px !important; }
+.stTabs [data-baseweb="tab"] { background: transparent !important; color: var(--muted) !important; border-radius: 2px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.65rem !important; letter-spacing: 0.08em !important; }
 .stTabs [aria-selected="true"] { background: var(--gold-dim) !important; color: var(--gold) !important; border: 1px solid rgba(201,168,76,0.25) !important; }
 
 .stDataFrame { border: 1px solid var(--border) !important; border-radius: 4px !important; }
@@ -217,8 +198,9 @@ hr { border-color: var(--border) !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── VIDEO BACKGROUND (landing page only) ─────────────────────────────────────
+# ── VIDEO BACKGROUND ─────────────────────────────────────────────────────────
 def add_video_background():
+    import base64
     video_path = os.path.join(os.path.dirname(__file__), "bg.mp4")
     if not os.path.exists(video_path):
         return
@@ -227,29 +209,42 @@ def add_video_background():
     st.markdown(f"""
     <style>
     .video-bg-wrap {{
-        position: fixed; inset: 0; z-index: 0;
-        overflow: hidden; pointer-events: none;
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
     }}
     .video-bg-wrap video {{
-        position: absolute; top: 50%; left: 50%;
+        position: absolute;
+        top: 50%; left: 50%;
         transform: translate(-50%, -50%);
         min-width: 100vw; min-height: 100vh;
-        width: auto; height: auto; object-fit: cover;
-        opacity: 0.55;
-        filter: saturate(0.7) brightness(0.8) hue-rotate(5deg);
+        width: auto; height: auto;
+        object-fit: cover;
+        opacity: 0.22;
+        filter: saturate(0.5) brightness(0.65) hue-rotate(5deg);
     }}
     .video-bg-overlay {{
-        position: fixed; inset: 0; z-index: 1; pointer-events: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
         background:
-    linear-gradient(180deg,
-        rgba(9,9,14,0.55) 0%, rgba(9,9,14,0.15) 35%,
-        rgba(9,9,14,0.15) 65%, rgba(9,9,14,0.60) 100%),
-    radial-gradient(ellipse 80% 60% at 50% 50%,
-        transparent 30%, rgba(9,9,14,0.20) 100%);
+            linear-gradient(180deg,
+                rgba(9,9,14,0.80) 0%,
+                rgba(9,9,14,0.50) 35%,
+                rgba(9,9,14,0.50) 65%,
+                rgba(9,9,14,0.88) 100%),
+            radial-gradient(ellipse 80% 60% at 50% 50%,
+                transparent 30%, rgba(9,9,14,0.55) 100%);
     }}
-    .navbar, .page-wrapper,
+    /* lift all UI above video layers */
+    .navbar,
+    .page-wrapper,
     [data-testid="stAppViewContainer"] > section > div {{
-        position: relative; z-index: 2;
+        position: relative;
+        z-index: 2;
     }}
     </style>
     <div class="video-bg-wrap">
@@ -260,10 +255,9 @@ def add_video_background():
     <div class="video-bg-overlay"></div>
     """, unsafe_allow_html=True)
 
-if st.session_state.page == "welcome":
-    add_video_background()
+add_video_background()
 
-# ── LOAD DATA & MODEL ─────────────────────────────────────────────────────────
+# ── LOAD ─────────────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
     path = os.path.join(MODEL_DIR, "rf_model.pkl")
@@ -299,8 +293,7 @@ def fetch_live_price(ticker):
             s2 = df2["Close"].dropna()
             if not s2.empty:
                 return round(float(s2.iloc[-1]), 2)
-    except:
-        pass
+    except: pass
     return None
 
 model, features, targets = load_model()
@@ -319,6 +312,16 @@ plot_theme = dict(
     margin=dict(t=40, b=20, l=10, r=10),
     legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#5a5d7a", size=10))
 )
+
+# ── SESSION STATE ─────────────────────────────────────────────────────────────
+if "page" not in st.session_state:
+    st.session_state.page = "welcome"
+if "prediction_result" not in st.session_state:
+    st.session_state.prediction_result = None
+
+def go_to(page):
+    st.session_state.page = page
+    st.rerun()
 
 # ── NAVBAR ────────────────────────────────────────────────────────────────────
 steps = [("welcome", "01  Overview"), ("simulate", "02  Simulation"), ("recommend", "03  Recommendations")]
@@ -375,22 +378,22 @@ if st.session_state.page == "welcome":
     """, unsafe_allow_html=True)
 
     key_tickers = {
-        "Crude Oil":   ("CL=F", "CRUDE_OIL"),
+        "Crude Oil": ("CL=F", "CRUDE_OIL"),
         "Natural Gas": ("NG=F", "NATURAL_GAS"),
-        "Wheat":       ("ZW=F", "WHEAT"),
-        "Copper":      ("HG=F", "COPPER"),
-        "Coffee":      ("KC=F", "COFFEE"),
-        "Cotton":      ("CT=F", "COTTON"),
+        "Wheat": ("ZW=F", "WHEAT"),
+        "Copper": ("HG=F", "COPPER"),
+        "Coffee": ("KC=F", "COFFEE"),
+        "Cotton": ("CT=F", "COTTON"),
     }
     pcols = st.columns(6)
     for i, (name, (ticker, hist_key)) in enumerate(key_tickers.items()):
         price = fetch_live_price(ticker)
-        hist  = historical_means.get(hist_key, 0)
+        hist = historical_means.get(hist_key, 0)
         if price and hist:
-            chg       = (price - hist) / hist * 100
-            arrow     = "▲" if chg > 0 else "▼"
+            chg = (price - hist) / hist * 100
+            arrow = "▲" if chg > 0 else "▼"
             chg_color = "#f2655a" if chg > 5 else "#f0a23a" if chg > 0 else "#3ecf8e"
-            chg_str   = f"{arrow} {abs(chg):.1f}%  vs  avg"
+            chg_str = f"{arrow} {abs(chg):.1f}%  vs  avg"
         else:
             chg_color, chg_str = "#5a5d7a", "N / A"
         price_str = f"${price:,.2f}" if price else "—"
@@ -412,17 +415,13 @@ if st.session_state.page == "welcome":
 
     k1, k2, k3, k4 = st.columns(4)
     kpis = [
-        ("Average Inflation",
-         f"{df_hist['Inflation (CPI %)'].mean():.2f}%",
+        ("Average Inflation", f"{df_hist['Inflation (CPI %)'].mean():.2f}%",
          f"Historical Peak:  {df_hist['Inflation (CPI %)'].max():.2f}%", "accent-red"),
-        ("Average GDP Growth",
-         f"{df_hist['GDP Growth (% Annual)'].mean():.2f}%",
+        ("Average GDP Growth", f"{df_hist['GDP Growth (% Annual)'].mean():.2f}%",
          f"Latest Reading:  {df_hist['GDP Growth (% Annual)'].iloc[-1]:.2f}%", "accent-green"),
-        ("Average Unemployment",
-         f"{df_hist['Unemployment Rate (%)'].mean():.2f}%",
+        ("Average Unemployment", f"{df_hist['Unemployment Rate (%)'].mean():.2f}%",
          f"Historical Low:  {df_hist['Unemployment Rate (%)'].min():.2f}%", "accent-amber"),
-        ("Average Interest Rate",
-         f"{df_hist['Interest Rate (Real, %)'].mean():.2f}%",
+        ("Average Interest Rate", f"{df_hist['Interest Rate (Real, %)'].mean():.2f}%",
          f"Latest Reading:  {df_hist['Interest Rate (Real, %)'].iloc[-1]:.2f}%", ""),
     ]
     for col, (label, value, sub, cls) in zip([k1, k2, k3, k4], kpis):
@@ -447,8 +446,8 @@ if st.session_state.page == "welcome":
     for tab, target in zip(tabs, targets):
         with tab:
             series = df_hist[target]
-            avg    = float(series.mean())
-            fig    = go.Figure()
+            avg = float(series.mean())
+            fig = go.Figure()
             fig.add_trace(go.Scatter(
                 x=df_hist.index, y=series, mode="lines",
                 line=dict(color="#c9a84c", width=1.5), name=target,
@@ -473,9 +472,9 @@ if st.session_state.page == "welcome":
 
             sc1, sc2, sc3, sc4 = st.columns(4)
             stats = [
-                ("Mean",   f"{series.mean():.2f}%", ""),
-                ("Peak",   f"{series.max():.2f}%",  "accent-red"),
-                ("Trough", f"{series.min():.2f}%",  "accent-green"),
+                ("Mean", f"{series.mean():.2f}%", ""),
+                ("Peak", f"{series.max():.2f}%", "accent-red"),
+                ("Trough", f"{series.min():.2f}%", "accent-green"),
                 ("Latest", f"{series.iloc[-1]:.2f}%", ""),
             ]
             for scol, (slabel, sval, scls) in zip([sc1, sc2, sc3, sc4], stats):
@@ -493,31 +492,7 @@ if st.session_state.page == "welcome":
         if st.button("Predict Your Simulation  ▶"):
             go_to("simulate")
     st.markdown("<div class='cta-hint'>Proceed to configure your business and run a custom scenario</div>", unsafe_allow_html=True)
-    # ── No simulation yet — show empty state ──────────────────────────────────
-    if st.session_state.prediction_result is None:
-        st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
-        st.markdown("""
-        <div style='
-            text-align: center;
-            padding: 3rem 2rem;
-            border: 1px dashed #2a2d44;
-            border-radius: 4px;
-            margin-top: 1rem;
-        '>
-            <div style='font-size:2rem;margin-bottom:1rem'>📊</div>
-            <div style='font-family:Playfair Display,serif;font-size:1.2rem;color:#fff;margin-bottom:0.5rem'>
-                No Simulation Run Yet
-            </div>
-            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
-            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8'>
-                Configure your business profile above and press<br>
-                <span style='color:#c9a84c'>Run Prediction  ▶</span>  to see results here.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
-
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -559,6 +534,8 @@ elif st.session_state.page == "simulate":
     """, unsafe_allow_html=True)
 
     if business_type == "🛠 Custom":
+        if "custom_commodities" not in st.session_state:
+            st.session_state.custom_commodities = [{"name": "Crude Oil", "weight": 50}]
         for i, row in enumerate(st.session_state.custom_commodities):
             cc1, cc2, cc3 = st.columns([3, 2, 1])
             with cc1:
@@ -609,16 +586,16 @@ elif st.session_state.page == "simulate":
     for i, (commodity, info) in enumerate(active_commodities.items()):
         price = fetch_live_price(info["ticker"])
         live_prices[commodity] = price
-        hist  = historical_means.get(commodity, 0)
+        hist = historical_means.get(commodity, 0)
         if price is None:
             price_str, chg_str, chg_color = "N / A", "No live data available", "#5a5d7a"
         else:
             price_str = f"${price:,.2f}"
             if hist:
-                chg       = (price - hist) / hist * 100
-                arrow     = "▲" if chg > 0 else "▼"
+                chg = (price - hist) / hist * 100
+                arrow = "▲" if chg > 0 else "▼"
                 chg_color = "#f2655a" if chg > 5 else "#f0a23a" if chg > 0 else "#3ecf8e"
-                chg_str   = f"{arrow}  {abs(chg):.1f}%  vs  historical avg"
+                chg_str = f"{arrow}  {abs(chg):.1f}%  vs  historical avg"
             else:
                 chg_str, chg_color = "Baseline unavailable", "#5a5d7a"
         with lp_cols[i]:
@@ -635,34 +612,17 @@ elif st.session_state.page == "simulate":
     with col_c:
         run_btn = st.button("Run Prediction  ▶")
 
-    # ── Duplicate scenario name check ─────────────────────────────────────────
-    existing_file = os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json")
-    if run_btn and os.path.exists(existing_file):
-        st.markdown(f"""
-        <div style='background:rgba(242,101,90,0.08);border:1px solid rgba(242,101,90,0.35);
-        border-left:3px solid #f2655a;border-radius:3px;padding:1rem 1.5rem;margin-top:1rem;
-        font-family:IBM Plex Mono,monospace;'>
-            <div style='color:#f2655a;font-size:0.65rem;letter-spacing:0.18em;
-            text-transform:uppercase;margin-bottom:0.35rem'>⚠ Scenario Name Already Exists</div>
-            <div style='color:#e2e4f0;font-size:0.85rem;line-height:1.6'>
-                A scenario named <strong>"{scenario_name}"</strong> has already been saved.
-                Please choose a different label and run again.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        run_btn = False
-
     if run_btn:
         input_data = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
-        input_df   = pd.DataFrame([input_data])[features]
+        input_df = pd.DataFrame([input_data])[features]
         prediction = model.predict(input_df)[0]
-        result     = dict(zip(targets, prediction))
+        result = dict(zip(targets, prediction))
 
         baseline_df = pd.DataFrame([{f: historical_means.get(f, 0) for f in features}])
-        baseline    = dict(zip(targets, model.predict(baseline_df)[0]))
+        baseline = dict(zip(targets, model.predict(baseline_df)[0]))
 
         cost_impact, breakdown = calculate_cost_impact(active_commodities, live_prices, historical_means)
-        translation            = translate(result, business_type, cost_impact)
+        translation = translate(result, business_type, cost_impact)
 
         st.session_state.prediction_result = {
             "result": result, "baseline": baseline,
@@ -688,49 +648,24 @@ elif st.session_state.page == "simulate":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — RECOMMENDATIONS
 # ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "recommend":
     if st.session_state.prediction_result is None:
-        st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class='section-label'>Recommendations</div>
-        <div class='section-title'>Strategic Recommendations</div>
-        <div class='section-divider'></div>
-        """, unsafe_allow_html=True)
-        st.markdown("""
-        <div style='
-            text-align: center;
-            padding: 4rem 2rem;
-            border: 1px dashed #2a2d44;
-            border-radius: 4px;
-            margin-top: 1rem;
-        '>
-            <div style='font-size:2.5rem;margin-bottom:1rem'>🔍</div>
-            <div style='font-family:Playfair Display,serif;font-size:1.4rem;color:#fff;margin-bottom:0.75rem'>
-                No Analysis Available
-            </div>
-            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
-            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8;margin-bottom:2rem'>
-                You have not run a simulation yet.<br>
-                Head to the Simulation page to configure your business and generate recommendations.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.warning("No prediction found. Please run a simulation first.")
         col_l, col_c, col_r = st.columns([2, 1, 2])
         with col_c:
             if st.button("Go to Simulation  ▶"):
                 go_to("simulate")
-        st.markdown("</div>", unsafe_allow_html=True)
         st.stop()
 
-    pr                 = st.session_state.prediction_result
-    result             = pr["result"]
-    baseline           = pr["baseline"]
-    cost_impact        = pr["cost_impact"]
-    breakdown          = pr["breakdown"]
-    translation        = pr["translation"]
-    business_type      = pr["business_type"]
-    scenario_name      = pr["scenario_name"]
-    live_prices        = pr["live_prices"]
+    pr            = st.session_state.prediction_result
+    result        = pr["result"]
+    baseline      = pr["baseline"]
+    cost_impact   = pr["cost_impact"]
+    breakdown     = pr["breakdown"]
+    translation   = pr["translation"]
+    business_type = pr["business_type"]
+    scenario_name = pr["scenario_name"]
+    live_prices   = pr["live_prices"]
     active_commodities = pr["active_commodities"]
     verdict_text, verdict_desc, verdict_color = translation["verdict"]
 
@@ -747,6 +682,7 @@ elif st.session_state.page == "simulate":
     <div class='section-divider'></div>
     """, unsafe_allow_html=True)
 
+    # Verdict
     verdict_icon = "🔴" if "Tough" in verdict_text else "🟡" if "Caution" in verdict_text else "🟢"
     st.markdown(f"""
     <div class='verdict-card'>
@@ -760,6 +696,7 @@ elif st.session_state.page == "simulate":
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # Predicted KPIs
     st.markdown("""
     <div class='section-label'>Predicted Outcomes</div>
     <div class='section-title'>Macro Indicator Forecast</div>
@@ -768,11 +705,11 @@ elif st.session_state.page == "simulate":
 
     res_cols = st.columns(len(targets))
     for i, (target, value) in enumerate(result.items()):
-        diff     = value - baseline[target]
-        arrow    = "▲" if diff > 0 else "▼"
-        is_bad   = (diff > 0 and target != "GDP Growth (% Annual)") or (diff < 0 and target == "GDP Growth (% Annual)")
+        diff = value - baseline[target]
+        arrow = "▲" if diff > 0 else "▼"
+        is_bad = (diff > 0 and target != "GDP Growth (% Annual)") or (diff < 0 and target == "GDP Growth (% Annual)")
         diff_color = "#f2655a" if is_bad else "#3ecf8e"
-        cls      = "accent-red" if is_bad else "accent-green"
+        cls = "accent-red" if is_bad else "accent-green"
         with res_cols[i]:
             st.markdown(f"""
             <div class='kpi-card {cls}'>
@@ -783,6 +720,7 @@ elif st.session_state.page == "simulate":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # Chart + breakdown
     ch_left, ch_right = st.columns(2)
     with ch_left:
         st.markdown("""
@@ -791,7 +729,7 @@ elif st.session_state.page == "simulate":
         <div class='section-divider'></div>
         """, unsafe_allow_html=True)
         short = [t.split("(")[0].strip() for t in targets]
-        fig   = go.Figure()
+        fig = go.Figure()
         fig.add_trace(go.Bar(
             name="Baseline", x=short, y=[baseline[t] for t in targets],
             marker_color="#1e2030", marker_line_color="#2a2d44", marker_line_width=1
@@ -828,6 +766,7 @@ elif st.session_state.page == "simulate":
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # Insights + Actions
     col_ins, col_act = st.columns(2)
     with col_ins:
         st.markdown("""
@@ -836,9 +775,9 @@ elif st.session_state.page == "simulate":
         <div class='section-divider'></div>
         """, unsafe_allow_html=True)
         for insight in translation["insights"]:
-            tag     = "RISK" if "🔴" in insight else "WATCH" if "🟡" in insight else "STABLE"
+            tag = "RISK" if "🔴" in insight else "WATCH" if "🟡" in insight else "STABLE"
             tag_cls = "tag-risk" if "🔴" in insight else "tag-watch" if "🟡" in insight else "tag-stable"
-            text    = insight[2:].strip().replace("**", "")
+            text = insight[2:].strip().replace("**", "")
             st.markdown(f"""
             <div class='insight-row'>
                 <span class='signal-tag {tag_cls}'>{tag}</span>
@@ -861,6 +800,7 @@ elif st.session_state.page == "simulate":
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # Scenario history
     st.markdown("""
     <div class='section-label'>Scenario History</div>
     <div class='section-title'>Previous Simulations</div>
@@ -871,9 +811,9 @@ elif st.session_state.page == "simulate":
         rows = []
         for f in files:
             data = json.load(open(os.path.join(RESULTS_DIR, f)))
-            row  = {
+            row = {
                 "Scenario": data.get("scenario", ""), "Business": data.get("business", ""),
-                "Verdict":  data.get("verdict",  ""), "Cost Δ %": data.get("cost_impact_pct", 0)
+                "Verdict": data.get("verdict", ""), "Cost Δ %": data.get("cost_impact_pct", 0)
             }
             row.update(data.get("predictions", {}))
             rows.append(row)
