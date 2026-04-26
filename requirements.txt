@@ -4,3 +4,8 @@ scikit-learn
 streamlit
 plotly
 yfinance
+psycopg2-binary
+bcrypt
+PyJWT
+scikit-learn
+reportlab

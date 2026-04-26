@@ -4,253 +4,255 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import yfinance as yf
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+from sklearn.model_selection import cross_val_score
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
 from business_profiles import BUSINESS_PROFILES, ALL_COMMODITIES, get_all_profiles
 from business_translator import translate, calculate_cost_impact
+from db import init_db, save_scenario, get_user_scenarios, scenario_name_exists, delete_scenario
+from auth import signup, login, get_user_from_token
 
 DATA_DIR    = os.path.join(os.path.dirname(__file__), "..", "data")
 MODEL_DIR   = os.path.join(os.path.dirname(__file__), "..", "models")
-RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "output", "results")
 
-st.set_page_config(page_title="BizShock", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="BizShock", page_icon="📊", layout="wide",
+                   initial_sidebar_state="collapsed")
 
-# ── SESSION STATE — must be initialized BEFORE anything that reads it ─────────
-if "page" not in st.session_state:
-    st.session_state.page = "welcome"
-if "prediction_result" not in st.session_state:
-    st.session_state.prediction_result = None
-if "custom_commodities" not in st.session_state:
-    st.session_state.custom_commodities = [{"name": "Crude Oil", "weight": 50}]
+# ── Init DB ───────────────────────────────────────────────────────────────────
+@st.cache_resource
+def bootstrap_db():
+    init_db()
+    return True
+bootstrap_db()
+
+# ── SESSION STATE ─────────────────────────────────────────────────────────────
+for k, v in {
+    "page": "auth", "auth_tab": "login",
+    "token": None, "user": None,
+    "prediction_result": None,
+    "custom_commodities": [{"name": "Crude Oil", "weight": 50}],
+    "first_visit": True,
+    "show_help": False,
+    "replay_scenario": None,
+}.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+# Restore session from token on page refresh
+if st.session_state.token and st.session_state.user is None:
+    restored = get_user_from_token(st.session_state.token)
+    if restored:
+        st.session_state.user = restored
+        st.session_state.page = "welcome"
+    else:
+        st.session_state.token = None
+        st.session_state.page  = "auth"
 
 def go_to(page):
     st.session_state.page = page
     st.rerun()
 
-# ── GLOBAL STYLES ─────────────────────────────────────────────────────────────
+def logout():
+    st.session_state.token             = None
+    st.session_state.user              = None
+    st.session_state.prediction_result = None
+    st.session_state.page              = "auth"
+    st.rerun()
+
+# ── CONSTANTS ─────────────────────────────────────────────────────────────────
+MAE_VALUES = {
+    "Inflation (CPI %)":       1.389,
+    "GDP Growth (% Annual)":   0.696,
+    "Unemployment Rate (%)":   0.466,
+    "Interest Rate (Real, %)": 0.990,
+}
+
+HISTORICAL_SCENARIOS = {
+    "2008 Financial Crisis": {
+        "description": "Global banking collapse — oil spike then crash, credit freeze",
+        "year": 2008,
+        "overrides": {"CRUDE_OIL": 99.67, "NATURAL_GAS": 8.86, "COPPER": 3.15},
+    },
+    "2020 COVID Shock": {
+        "description": "Pandemic — demand collapse, supply chain disruption",
+        "year": 2020,
+        "overrides": {"CRUDE_OIL": 41.47, "NATURAL_GAS": 2.03, "WHEAT": 5.11},
+    },
+    "2022 Energy Crisis": {
+        "description": "Ukraine war — energy and food price surge",
+        "year": 2022,
+        "overrides": {"CRUDE_OIL": 94.53, "NATURAL_GAS": 6.45, "WHEAT": 9.12, "CORN": 6.82},
+    },
+    "2011 Arab Spring": {
+        "description": "Geopolitical instability — food and oil spike",
+        "year": 2011,
+        "overrides": {"CRUDE_OIL": 111.0, "WHEAT": 8.00, "CORN": 7.00, "SUGAR": 26.0},
+    },
+}
+
+# ── STYLES ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
-
-:root {
-    --bg:         #09090e;
-    --surface:    #0f1018;
-    --surface2:   #14151f;
-    --border:     #1e2030;
-    --border2:    #2a2d44;
-    --text:       #e2e4f0;
-    --muted:      #5a5d7a;
-    --muted2:     #3a3d55;
-    --gold:       #c9a84c;
-    --gold-light: #e8c97a;
-    --gold-dim:   rgba(201,168,76,0.12);
-    --green:      #3ecf8e;
-    --red:        #f2655a;
-    --amber:      #f0a23a;
-    --blue:       #5b8ff9;
-}
-
-* { font-family: 'Source Sans 3', sans-serif; box-sizing: border-box; }
-.stApp { background: var(--bg); color: var(--text); }
-
-#MainMenu, footer, header { visibility: hidden; }
-[data-testid="stDecoration"] { display: none; }
-[data-testid="stSidebar"] { display: none; }
-section[data-testid="stSidebarContent"] { display: none; }
-.block-container { padding: 0 !important; max-width: 100% !important; }
-
-.navbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 3rem; height: 68px;
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; z-index: 100;
-}
-.nav-brand {
-    font-family: 'Playfair Display', serif; font-size: 1.5rem;
-    font-weight: 600; color: var(--gold); letter-spacing: 0.04em;
-}
-.nav-brand span { color: var(--text); font-weight: 400; }
-.nav-tagline {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem;
-    color: var(--muted); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 2px;
-}
-.nav-steps { display: flex; gap: 2px; }
-.nav-step {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    padding: 0.35rem 1rem; color: var(--muted); border-radius: 2px;
-}
-.nav-step.active { color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(201,168,76,0.25); }
-.nav-step.done { color: var(--green); }
-.live-dot {
-    display: flex; align-items: center; gap: 0.5rem;
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; letter-spacing: 0.1em; color: var(--green);
-}
-.live-dot::before {
-    content: ''; width: 6px; height: 6px; background: var(--green);
-    border-radius: 50%; box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite;
-}
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-.page-wrapper { max-width: 1280px; margin: 0 auto; padding: 3rem 3rem 4rem; }
-
-.hero { text-align: center; padding: 5rem 2rem 4rem; position: relative; }
-.hero::before {
-    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-    width: 600px; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-}
-.hero-eyebrow {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
-    letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.5rem;
-}
-.hero-title {
-    font-family: 'Playfair Display', serif; font-size: 4rem; font-weight: 700;
-    color: #fff; line-height: 1.1; margin-bottom: 1rem;
-}
-.hero-title span { color: var(--gold); }
-.hero-subtitle {
-    font-size: 1.1rem; color: var(--muted); max-width: 560px;
-    margin: 0 auto 3rem; line-height: 1.7; font-weight: 300;
-}
-
-.section-label {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem;
-    letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold);
-    margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem;
-}
-.section-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border2), transparent); }
-.section-title { font-family: 'Playfair Display', serif; font-size: 1.75rem; font-weight: 600; color: #fff; margin-bottom: 0.5rem; }
-.section-divider { height: 1px; background: linear-gradient(90deg, var(--gold), transparent); width: 60px; margin-bottom: 2rem; }
-
-.kpi-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-top: 2px solid var(--gold); border-radius: 4px; padding: 1.5rem 1.75rem;
-}
-.kpi-label {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem;
-    letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem;
-}
-.kpi-value { font-family: 'Playfair Display', serif; font-size: 2.2rem; font-weight: 600; color: #fff; line-height: 1; margin-bottom: 0.3rem; }
-.kpi-sub { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: var(--muted); }
-.kpi-card.accent-green { border-top-color: var(--green); }
-.kpi-card.accent-red { border-top-color: var(--red); }
-.kpi-card.accent-amber { border-top-color: var(--amber); }
-
-.price-card {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 4px; padding: 1.25rem 1.5rem;
-    display: flex; flex-direction: column; gap: 0.35rem;
-}
-.price-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-.price-value { font-family: 'Playfair Display', serif; font-size: 1.65rem; color: #fff; line-height: 1; }
-.price-change { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; }
-
-.cta-hint { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; letter-spacing: 0.12em; color: var(--muted); text-align: center; margin-top: 0.75rem; }
-
-.stButton > button {
-    background: linear-gradient(135deg, #c9a84c, #a8882a) !important;
-    color: #09090e !important; border: none !important; border-radius: 3px !important;
-    font-family: 'IBM Plex Mono', monospace !important; font-size: 0.7rem !important;
-    font-weight: 600 !important; letter-spacing: 0.18em !important; text-transform: uppercase !important;
-    padding: 0.75rem 2.5rem !important; transition: opacity 0.2s !important;
-}
-.stButton > button:hover { opacity: 0.85 !important; }
-
-.verdict-card {
-    background: var(--surface); border: 1px solid var(--border2); border-radius: 4px;
-    padding: 2rem 2.5rem; display: flex; align-items: flex-start; gap: 2rem; margin: 1.5rem 0;
-}
-.verdict-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; margin-bottom: 0.4rem; }
-.verdict-body { font-size: 0.95rem; color: var(--muted); line-height: 1.6; max-width: 600px; }
-
-.insight-row {
-    display: flex; align-items: flex-start; gap: 1rem;
-    padding: 1rem 1.25rem; margin: 0.4rem 0;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
-    font-size: 0.9rem; line-height: 1.6; color: var(--text);
-}
-.signal-tag {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.52rem;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    padding: 0.18rem 0.5rem; border-radius: 2px; white-space: nowrap; margin-top: 0.18rem;
-}
-.tag-risk { background: rgba(242,101,90,0.12); color: var(--red); border: 1px solid rgba(242,101,90,0.3); }
-.tag-watch { background: rgba(240,162,58,0.12); color: var(--amber); border: 1px solid rgba(240,162,58,0.3); }
-.tag-stable { background: rgba(62,207,142,0.12); color: var(--green); border: 1px solid rgba(62,207,142,0.3); }
-
-.action-row {
-    display: flex; align-items: flex-start; gap: 1rem;
-    padding: 1rem 1.25rem; margin: 0.4rem 0;
-    background: rgba(201,168,76,0.04); border: 1px solid rgba(201,168,76,0.15);
-    border-radius: 3px; font-size: 0.9rem; line-height: 1.6; color: var(--text);
-}
-.action-num { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--gold); min-width: 1.5rem; margin-top: 0.2rem; font-weight: 500; }
-
-.stNumberInput input, .stTextInput input {
-    background: var(--surface2) !important; border: 1px solid var(--border2) !important;
-    border-radius: 3px !important; color: var(--text) !important;
-    font-family: 'IBM Plex Mono', monospace !important; font-size: 0.85rem !important;
-}
-.stNumberInput input:focus, .stTextInput input:focus {
-    border-color: var(--gold) !important; box-shadow: 0 0 0 2px rgba(201,168,76,0.1) !important;
-}
-.stNumberInput label, .stTextInput label, .stSelectbox label {
-    font-family: 'IBM Plex Mono', monospace !important; font-size: 0.6rem !important;
-    letter-spacing: 0.15em !important; text-transform: uppercase !important; color: var(--muted) !important;
-}
-.stSelectbox > div > div {
-    background: var(--surface2) !important; border: 1px solid var(--border2) !important;
-    border-radius: 3px !important; color: var(--text) !important;
-}
-
-.stTabs [data-baseweb="tab-list"] { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 3px; gap: 2px; }
-.stTabs [data-baseweb="tab"] { background: transparent !important; color: var(--muted) !important; border-radius: 2px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.65rem !important; letter-spacing: 0.08em !important; padding: 1.2rem 1.8rem !important; margin: 0 2px !important; }
-.stTabs [aria-selected="true"] { background: var(--gold-dim) !important; color: var(--gold) !important; border: 1px solid rgba(201,168,76,0.25) !important; }
-
-.stDataFrame { border: 1px solid var(--border) !important; border-radius: 4px !important; }
-hr { border-color: var(--border) !important; }
-
-.gold-rule { height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 2.5rem 0; }
-.ornament { text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; letter-spacing: 0.3em; color: var(--muted2); margin: 2rem 0; }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+:root{--bg:#09090e;--surface:#0f1018;--surface2:#14151f;--border:#1e2030;--border2:#2a2d44;
+--text:#e2e4f0;--muted:#5a5d7a;--muted2:#3a3d55;--gold:#c9a84c;--gold-dim:rgba(201,168,76,0.12);
+--green:#3ecf8e;--red:#f2655a;--amber:#f0a23a;}
+*{font-family:'Source Sans 3',sans-serif;box-sizing:border-box;}
+.stApp{background:var(--bg);color:var(--text);}
+#MainMenu,footer,header{visibility:hidden;}
+[data-testid="stDecoration"],[data-testid="stSidebar"],
+section[data-testid="stSidebarContent"]{display:none;}
+.block-container{padding:0!important;max-width:100%!important;}
+.navbar{display:flex;align-items:center;justify-content:space-between;
+padding:0 3rem;height:68px;background:var(--surface);
+border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.nav-brand{font-family:'Playfair Display',serif;font-size:1.5rem;
+font-weight:600;color:var(--gold);letter-spacing:0.04em;}
+.nav-brand span{color:var(--text);font-weight:400;}
+.nav-tagline{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;
+color:var(--muted);letter-spacing:0.18em;text-transform:uppercase;margin-top:2px;}
+.nav-steps{display:flex;gap:2px;}
+.nav-step{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
+letter-spacing:0.12em;text-transform:uppercase;
+padding:0.35rem 1rem;color:var(--muted);border-radius:2px;}
+.nav-step.active{color:var(--gold);background:var(--gold-dim);
+border:1px solid rgba(201,168,76,0.25);}
+.nav-step.done{color:var(--green);}
+.nav-right{display:flex;align-items:center;gap:1.5rem;}
+.nav-user{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
+letter-spacing:0.1em;color:var(--muted);}
+.nav-user strong{color:var(--gold);}
+.live-dot{display:flex;align-items:center;gap:0.5rem;
+font-family:'IBM Plex Mono',monospace;font-size:0.58rem;
+letter-spacing:0.1em;color:var(--green);}
+.live-dot::before{content:'';width:6px;height:6px;background:var(--green);
+border-radius:50%;box-shadow:0 0 8px var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.auth-wrap{min-height:100vh;display:flex;align-items:center;
+justify-content:center;background:var(--bg);padding:2rem;}
+.auth-card{background:var(--surface);border:1px solid var(--border2);
+border-top:3px solid var(--gold);border-radius:6px;
+padding:3rem 3.5rem;width:100%;max-width:480px;}
+.auth-brand{font-family:'Playfair Display',serif;font-size:2rem;
+font-weight:700;color:var(--gold);text-align:center;margin-bottom:0.25rem;}
+.auth-brand span{color:var(--text);}
+.auth-sub{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
+letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);
+text-align:center;margin-bottom:2.5rem;}
+.page-wrapper{max-width:1280px;margin:0 auto;padding:3rem 3rem 4rem;}
+.hero{text-align:center;padding:5rem 2rem 4rem;position:relative;}
+.hero::before{content:'';position:absolute;top:0;left:50%;
+transform:translateX(-50%);width:600px;height:1px;
+background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.hero-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:0.65rem;
+letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:1.5rem;}
+.hero-title{font-family:'Playfair Display',serif;font-size:4rem;font-weight:700;
+color:#fff;line-height:1.1;margin-bottom:1rem;}
+.hero-title span{color:var(--gold);}
+.hero-subtitle{font-size:1.1rem;color:var(--muted);max-width:560px;
+margin:0 auto 3rem;line-height:1.7;font-weight:300;}
+.section-label{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
+letter-spacing:0.25em;text-transform:uppercase;color:var(--gold);
+margin-bottom:1rem;display:flex;align-items:center;gap:0.75rem;}
+.section-label::after{content:'';flex:1;height:1px;
+background:linear-gradient(90deg,var(--border2),transparent);}
+.section-title{font-family:'Playfair Display',serif;font-size:1.75rem;
+font-weight:600;color:#fff;margin-bottom:0.5rem;}
+.section-divider{height:1px;background:linear-gradient(90deg,var(--gold),transparent);
+width:60px;margin-bottom:2rem;}
+.kpi-card{background:var(--surface);border:1px solid var(--border);
+border-top:2px solid var(--gold);border-radius:4px;padding:1.5rem 1.75rem;}
+.kpi-label{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;
+letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem;}
+.kpi-value{font-family:'Playfair Display',serif;font-size:2.2rem;
+font-weight:600;color:#fff;line-height:1;margin-bottom:0.3rem;}
+.kpi-sub{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted);}
+.kpi-card.accent-green{border-top-color:var(--green);}
+.kpi-card.accent-red{border-top-color:var(--red);}
+.kpi-card.accent-amber{border-top-color:var(--amber);}
+.price-card{background:var(--surface2);border:1px solid var(--border);
+border-radius:4px;padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:0.35rem;}
+.price-label{font-family:'IBM Plex Mono',monospace;font-size:0.55rem;
+letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);}
+.price-value{font-family:'Playfair Display',serif;font-size:1.65rem;color:#fff;line-height:1;}
+.price-change{font-family:'IBM Plex Mono',monospace;font-size:0.62rem;}
+.cta-hint{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
+letter-spacing:0.12em;color:var(--muted);text-align:center;margin-top:0.75rem;}
+.stButton>button{background:linear-gradient(135deg,#c9a84c,#a8882a)!important;
+color:#09090e!important;border:none!important;border-radius:3px!important;
+font-family:'IBM Plex Mono',monospace!important;font-size:0.7rem!important;
+font-weight:600!important;letter-spacing:0.18em!important;text-transform:uppercase!important;
+padding:0.75rem 2.5rem!important;transition:opacity 0.2s!important;}
+.stButton>button:hover{opacity:0.85!important;}
+.verdict-card{background:var(--surface);border:1px solid var(--border2);
+border-radius:4px;padding:2rem 2.5rem;display:flex;align-items:flex-start;
+gap:2rem;margin:1.5rem 0;}
+.verdict-title{font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;margin-bottom:0.4rem;}
+.verdict-body{font-size:0.95rem;color:var(--muted);line-height:1.6;max-width:600px;}
+.insight-row{display:flex;align-items:flex-start;gap:1rem;padding:1rem 1.25rem;
+margin:0.4rem 0;background:var(--surface);border:1px solid var(--border);
+border-radius:3px;font-size:0.9rem;line-height:1.6;color:var(--text);}
+.signal-tag{font-family:'IBM Plex Mono',monospace;font-size:0.52rem;
+letter-spacing:0.12em;text-transform:uppercase;padding:0.18rem 0.5rem;
+border-radius:2px;white-space:nowrap;margin-top:0.18rem;}
+.tag-risk{background:rgba(242,101,90,0.12);color:var(--red);border:1px solid rgba(242,101,90,0.3);}
+.tag-watch{background:rgba(240,162,58,0.12);color:var(--amber);border:1px solid rgba(240,162,58,0.3);}
+.tag-stable{background:rgba(62,207,142,0.12);color:var(--green);border:1px solid rgba(62,207,142,0.3);}
+.action-row{display:flex;align-items:flex-start;gap:1rem;padding:1rem 1.25rem;
+margin:0.4rem 0;background:rgba(201,168,76,0.04);
+border:1px solid rgba(201,168,76,0.15);border-radius:3px;
+font-size:0.9rem;line-height:1.6;color:var(--text);}
+.action-num{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;
+color:var(--gold);min-width:1.5rem;margin-top:0.2rem;font-weight:500;}
+.replay-card{background:var(--surface);border:1px solid var(--border2);
+border-radius:4px;padding:1.25rem 1.5rem;}
+.replay-card:hover{border-color:var(--gold);}
+.stNumberInput input,.stTextInput input{background:var(--surface2)!important;
+border:1px solid var(--border2)!important;border-radius:3px!important;
+color:var(--text)!important;font-family:'IBM Plex Mono',monospace!important;font-size:0.85rem!important;}
+.stNumberInput input:focus,.stTextInput input:focus{border-color:var(--gold)!important;
+box-shadow:0 0 0 2px rgba(201,168,76,0.1)!important;}
+.stNumberInput label,.stTextInput label,.stSelectbox label{
+font-family:'IBM Plex Mono',monospace!important;font-size:0.6rem!important;
+letter-spacing:0.15em!important;text-transform:uppercase!important;color:var(--muted)!important;}
+.stSelectbox>div>div{background:var(--surface2)!important;
+border:1px solid var(--border2)!important;border-radius:3px!important;color:var(--text)!important;}
+.stTabs [data-baseweb="tab-list"]{background:var(--surface);border:1px solid var(--border);
+border-radius:3px;padding:3px;gap:2px;}
+.stTabs [data-baseweb="tab"]{background:transparent!important;color:var(--muted)!important;
+border-radius:2px!important;font-family:'IBM Plex Mono',monospace!important;
+font-size:0.65rem!important;letter-spacing:0.08em!important;
+padding:0.4rem 1.2rem!important;margin:0 2px!important;}
+.stTabs [aria-selected="true"]{background:var(--gold-dim)!important;
+color:var(--gold)!important;border:1px solid rgba(201,168,76,0.25)!important;}
+.stDataFrame{border:1px solid var(--border)!important;border-radius:4px!important;}
+hr{border-color:var(--border)!important;}
+.gold-rule{height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:2.5rem 0;}
+.ornament{text-align:center;font-family:'IBM Plex Mono',monospace;font-size:0.55rem;
+letter-spacing:0.3em;color:var(--muted2);margin:2rem 0;}
 </style>
 """, unsafe_allow_html=True)
 
-# ── VIDEO BACKGROUND (landing page only) ─────────────────────────────────────
+# ── VIDEO BG ──────────────────────────────────────────────────────────────────
 def add_video_background():
     video_path = os.path.join(os.path.dirname(__file__), "bg.mp4")
-    if not os.path.exists(video_path):
-        return
+    if not os.path.exists(video_path): return
     with open(video_path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
     st.markdown(f"""
     <style>
-    .video-bg-wrap {{
-        position: fixed; inset: 0; z-index: 0;
-        overflow: hidden; pointer-events: none;
-    }}
-    .video-bg-wrap video {{
-        position: absolute; top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        min-width: 100vw; min-height: 100vh;
-        width: auto; height: auto; object-fit: cover;
-        opacity: 0.55;
-        filter: saturate(0.7) brightness(0.8) hue-rotate(5deg);
-    }}
-    .video-bg-overlay {{
-        position: fixed; inset: 0; z-index: 1; pointer-events: none;
-        background:
-    linear-gradient(180deg,
-        rgba(9,9,14,0.55) 0%, rgba(9,9,14,0.15) 35%,
-        rgba(9,9,14,0.15) 65%, rgba(9,9,14,0.60) 100%),
-    radial-gradient(ellipse 80% 60% at 50% 50%,
-        transparent 30%, rgba(9,9,14,0.20) 100%);
-    }}
-    .navbar, .page-wrapper,
-    [data-testid="stAppViewContainer"] > section > div {{
-        position: relative; z-index: 2;
-    }}
+    .video-bg-wrap{{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;}}
+    .video-bg-wrap video{{position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);min-width:100vw;min-height:100vh;
+    width:auto;height:auto;object-fit:cover;opacity:0.55;
+    filter:saturate(0.7) brightness(0.8) hue-rotate(5deg);}}
+    .video-bg-overlay{{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:linear-gradient(180deg,rgba(9,9,14,0.55) 0%,rgba(9,9,14,0.15) 35%,
+    rgba(9,9,14,0.15) 65%,rgba(9,9,14,0.60) 100%),
+    radial-gradient(ellipse 80% 60% at 50% 50%,transparent 30%,rgba(9,9,14,0.20) 100%);}}
+    .navbar,.page-wrapper,.auth-wrap,
+    [data-testid="stAppViewContainer"]>section>div{{position:relative;z-index:2;}}
     </style>
     <div class="video-bg-wrap">
         <video autoplay muted loop playsinline>
@@ -260,15 +262,14 @@ def add_video_background():
     <div class="video-bg-overlay"></div>
     """, unsafe_allow_html=True)
 
-if st.session_state.page == "welcome":
+if st.session_state.page in ("auth", "welcome"):
     add_video_background()
 
-# ── LOAD DATA & MODEL ─────────────────────────────────────────────────────────
+# ── LOAD MODEL & DATA ─────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
     path = os.path.join(MODEL_DIR, "rf_model.pkl")
-    if not os.path.exists(path):
-        return None, None, None
+    if not os.path.exists(path): return None, None, None
     bundle = pickle.load(open(path, "rb"))
     return bundle["model"], bundle["features"], bundle["targets"]
 
@@ -292,15 +293,12 @@ def fetch_live_price(ticker):
             df = t.history(period=period, interval="1d", auto_adjust=False, prepost=True, actions=False)
             if df is not None and not df.empty and "Close" in df.columns:
                 s = df["Close"].dropna()
-                if not s.empty:
-                    return round(float(s.iloc[-1]), 2)
+                if not s.empty: return round(float(s.iloc[-1]), 2)
         df2 = yf.download(ticker, period="5d", interval="1d", progress=False)
         if df2 is not None and not df2.empty and "Close" in df2.columns:
             s2 = df2["Close"].dropna()
-            if not s2.empty:
-                return round(float(s2.iloc[-1]), 2)
-    except:
-        pass
+            if not s2.empty: return round(float(s2.iloc[-1]), 2)
+    except: pass
     return None
 
 model, features, targets = load_model()
@@ -320,17 +318,101 @@ plot_theme = dict(
     legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#5a5d7a", size=10))
 )
 
-# ── NAVBAR ────────────────────────────────────────────────────────────────────
-steps = [("welcome", "01  Overview"), ("simulate", "02  Simulation"), ("recommend", "03  Recommendations")]
-current = st.session_state.page
+# ── AUTH GUARD ────────────────────────────────────────────────────────────────
+if st.session_state.user is None and st.session_state.page != "auth":
+    st.session_state.page = "auth"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 0 — AUTH
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.page == "auth":
+    st.markdown("<div class='auth-wrap'><div class='auth-card'>", unsafe_allow_html=True)
+    st.markdown("""
+    <div class='auth-brand'>Biz<span>Shock</span></div>
+    <div class='auth-sub'>Commodity Shock · Business Impact Analyzer</div>
+    """, unsafe_allow_html=True)
+
+    col_login, col_signup = st.columns(2)
+    with col_login:
+        if st.button("Log In", key="tab_login"):
+            st.session_state.auth_tab = "login"; st.rerun()
+    with col_signup:
+        if st.button("Sign Up", key="tab_signup"):
+            st.session_state.auth_tab = "signup"; st.rerun()
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    if st.session_state.auth_tab == "login":
+        st.markdown("<div style='font-family:Playfair Display,serif;font-size:1.3rem;color:#fff;margin-bottom:1.5rem'>Welcome back</div>", unsafe_allow_html=True)
+        login_email = st.text_input("Email Address", key="login_email", placeholder="you@example.com")
+        login_pass  = st.text_input("Password", type="password", key="login_pass", placeholder="••••••••")
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_l, col_c, col_r = st.columns([1,2,1])
+        with col_c:
+            login_btn = st.button("Log In  ▶", key="do_login")
+        if login_btn:
+            if not login_email or not login_pass:
+                st.error("Please fill in both fields.")
+            else:
+                token, user, err = login(login_email, login_pass)
+                if err:
+                    st.markdown(f"<div style='background:rgba(242,101,90,0.08);border:1px solid rgba(242,101,90,0.3);border-left:3px solid #f2655a;border-radius:3px;padding:0.85rem 1.25rem;margin-top:0.75rem;font-family:IBM Plex Mono,monospace;font-size:0.75rem;color:#f2655a'>⚠  {err}</div>", unsafe_allow_html=True)
+                else:
+                    st.session_state.token = token
+                    st.session_state.user  = user
+                    st.session_state.page  = "welcome"
+                    st.rerun()
+        st.markdown("<div style='text-align:center;margin-top:1.5rem;font-family:IBM Plex Mono,monospace;font-size:0.62rem;color:#3a3d55'>Don't have an account?</div>", unsafe_allow_html=True)
+        col_l2, col_c2, col_r2 = st.columns([1,2,1])
+        with col_c2:
+            if st.button("Create Account", key="switch_signup"):
+                st.session_state.auth_tab = "signup"; st.rerun()
+
+    else:
+        st.markdown("<div style='font-family:Playfair Display,serif;font-size:1.3rem;color:#fff;margin-bottom:1.5rem'>Create your account</div>", unsafe_allow_html=True)
+        su_name    = st.text_input("Full Name", key="su_name", placeholder="Saumya Mishra")
+        su_biz     = st.text_input("Business Name", key="su_biz", placeholder="My Bakery Ltd.")
+        su_email   = st.text_input("Email Address", key="su_email", placeholder="you@example.com")
+        su_pass    = st.text_input("Password", type="password", key="su_pass", placeholder="Min 8 characters")
+        su_confirm = st.text_input("Confirm Password", type="password", key="su_confirm", placeholder="Repeat password")
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_l, col_c, col_r = st.columns([1,2,1])
+        with col_c:
+            signup_btn = st.button("Create Account  ▶", key="do_signup")
+        if signup_btn:
+            if su_pass != su_confirm:
+                st.markdown("<div style='background:rgba(242,101,90,0.08);border:1px solid rgba(242,101,90,0.3);border-left:3px solid #f2655a;border-radius:3px;padding:0.85rem 1.25rem;margin-top:0.75rem;font-family:IBM Plex Mono,monospace;font-size:0.75rem;color:#f2655a'>⚠  Passwords do not match.</div>", unsafe_allow_html=True)
+            else:
+                token, user, err = signup(su_email, su_pass, su_name, su_biz)
+                if err:
+                    st.markdown(f"<div style='background:rgba(242,101,90,0.08);border:1px solid rgba(242,101,90,0.3);border-left:3px solid #f2655a;border-radius:3px;padding:0.85rem 1.25rem;margin-top:0.75rem;font-family:IBM Plex Mono,monospace;font-size:0.75rem;color:#f2655a'>⚠  {err}</div>", unsafe_allow_html=True)
+                else:
+                    st.session_state.token = token
+                    st.session_state.user  = user
+                    st.session_state.page  = "welcome"
+                    st.rerun()
+        st.markdown("<div style='text-align:center;margin-top:1.5rem;font-family:IBM Plex Mono,monospace;font-size:0.62rem;color:#3a3d55'>Already have an account?</div>", unsafe_allow_html=True)
+        col_l2, col_c2, col_r2 = st.columns([1,2,1])
+        with col_c2:
+            if st.button("Log In Instead", key="switch_login"):
+                st.session_state.auth_tab = "login"; st.rerun()
+
+    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.stop()
+
+# ── NAVBAR ────────────────────────────────────────────────────────────────────
+user = st.session_state.user
+steps = [("welcome","01  Overview"),("simulate","02  Simulation"),
+         ("recommend","03  Recommendations"),("accuracy","04  Model Accuracy")]
+current = st.session_state.page
 step_html = ""
 for key, label in steps:
-    idx_cur = [k for k, _ in steps].index(current)
-    idx_key = [k for k, _ in steps].index(key)
-    cls = "active" if key == current else ("done" if idx_key < idx_cur else "")
+    idx_cur = [k for k,_ in steps].index(current) if current in [k for k,_ in steps] else 0
+    idx_key = [k for k,_ in steps].index(key)
+    cls = "active" if key==current else ("done" if idx_key < idx_cur else "")
     step_html += f"<div class='nav-step {cls}'>{label}</div>"
 
+display_name = user.get("full_name") or user.get("email", "")
 st.markdown(f"""
 <div class='navbar'>
     <div>
@@ -338,9 +420,16 @@ st.markdown(f"""
         <div class='nav-tagline'>Commodity Shock &middot; Business Impact Analyzer</div>
     </div>
     <div class='nav-steps'>{step_html}</div>
-    <div class='live-dot'>Live Market Data</div>
-</div>
-""", unsafe_allow_html=True)
+    <div class='nav-right'>
+        <div class='nav-user'>Signed in as &nbsp;<strong>{display_name}</strong></div>
+        <div class='live-dot'>Live Data</div>
+    </div>
+</div>""", unsafe_allow_html=True)
+
+cols = st.columns([6,1])
+with cols[1]:
+    if st.button("Log Out"):
+        logout()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — WELCOME
@@ -348,49 +437,46 @@ st.markdown(f"""
 if st.session_state.page == "welcome":
     st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
 
-    st.markdown("""
+    first_name = (user.get("full_name") or "").split()[0] or "there"
+    st.markdown(f"""
     <div class='hero'>
         <div class='hero-eyebrow'>Economic Intelligence Platform</div>
-        <div class='hero-title'>Welcome to <span>BizShock</span></div>
+        <div class='hero-title'>Welcome back, <span>{first_name}</span></div>
         <div class='hero-subtitle'>
             Understand how global commodity price shocks impact your business.
             Powered by machine learning and live market data.
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
-    col_l, col_c, col_r = st.columns([2, 1, 2])
+    col_l, col_c, col_r = st.columns([2,1,2])
     with col_c:
         if st.button("Begin Simulation  ▶"):
             go_to("simulate")
     st.markdown("<div class='cta-hint'>Configure your business profile and run a scenario prediction</div>", unsafe_allow_html=True)
-
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
     # Live prices
     st.markdown("""
     <div class='section-label'>Live Market Snapshot</div>
     <div class='section-title'>Current Commodity Prices</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
-
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
     key_tickers = {
-        "Crude Oil":   ("CL=F", "CRUDE_OIL"),
-        "Natural Gas": ("NG=F", "NATURAL_GAS"),
-        "Wheat":       ("ZW=F", "WHEAT"),
-        "Copper":      ("HG=F", "COPPER"),
-        "Coffee":      ("KC=F", "COFFEE"),
-        "Cotton":      ("CT=F", "COTTON"),
+        "Crude Oil":   ("CL=F","CRUDE_OIL"),
+        "Natural Gas": ("NG=F","NATURAL_GAS"),
+        "Wheat":       ("ZW=F","WHEAT"),
+        "Copper":      ("HG=F","COPPER"),
+        "Coffee":      ("KC=F","COFFEE"),
+        "Cotton":      ("CT=F","COTTON"),
     }
     pcols = st.columns(6)
-    for i, (name, (ticker, hist_key)) in enumerate(key_tickers.items()):
+    for i,(name,(ticker,hist_key)) in enumerate(key_tickers.items()):
         price = fetch_live_price(ticker)
         hist  = historical_means.get(hist_key, 0)
         if price and hist:
-            chg       = (price - hist) / hist * 100
-            arrow     = "▲" if chg > 0 else "▼"
-            chg_color = "#f2655a" if chg > 5 else "#f0a23a" if chg > 0 else "#3ecf8e"
-            chg_str   = f"{arrow} {abs(chg):.1f}%  vs  avg"
+            chg = (price-hist)/hist*100
+            arrow = "▲" if chg>0 else "▼"
+            chg_color = "#f2655a" if chg>5 else "#f0a23a" if chg>0 else "#3ecf8e"
+            chg_str = f"{arrow} {abs(chg):.1f}%  vs  avg"
         else:
             chg_color, chg_str = "#5a5d7a", "N / A"
         price_str = f"${price:,.2f}" if price else "—"
@@ -403,29 +489,23 @@ if st.session_state.page == "welcome":
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
-    # Historical KPIs
+    # KPIs
     st.markdown("""
     <div class='section-label'>Historical Context</div>
     <div class='section-title'>Key Economic Indicators</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
-
-    k1, k2, k3, k4 = st.columns(4)
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+    k1,k2,k3,k4 = st.columns(4)
     kpis = [
-        ("Average Inflation",
-         f"{df_hist['Inflation (CPI %)'].mean():.2f}%",
-         f"Historical Peak:  {df_hist['Inflation (CPI %)'].max():.2f}%", "accent-red"),
-        ("Average GDP Growth",
-         f"{df_hist['GDP Growth (% Annual)'].mean():.2f}%",
-         f"Latest Reading:  {df_hist['GDP Growth (% Annual)'].iloc[-1]:.2f}%", "accent-green"),
-        ("Average Unemployment",
-         f"{df_hist['Unemployment Rate (%)'].mean():.2f}%",
-         f"Historical Low:  {df_hist['Unemployment Rate (%)'].min():.2f}%", "accent-amber"),
-        ("Average Interest Rate",
-         f"{df_hist['Interest Rate (Real, %)'].mean():.2f}%",
-         f"Latest Reading:  {df_hist['Interest Rate (Real, %)'].iloc[-1]:.2f}%", ""),
+        ("Average Inflation",f"{df_hist['Inflation (CPI %)'].mean():.2f}%",
+         f"Historical Peak:  {df_hist['Inflation (CPI %)'].max():.2f}%","accent-red"),
+        ("Average GDP Growth",f"{df_hist['GDP Growth (% Annual)'].mean():.2f}%",
+         f"Latest Reading:  {df_hist['GDP Growth (% Annual)'].iloc[-1]:.2f}%","accent-green"),
+        ("Average Unemployment",f"{df_hist['Unemployment Rate (%)'].mean():.2f}%",
+         f"Historical Low:  {df_hist['Unemployment Rate (%)'].min():.2f}%","accent-amber"),
+        ("Average Interest Rate",f"{df_hist['Interest Rate (Real, %)'].mean():.2f}%",
+         f"Latest Reading:  {df_hist['Interest Rate (Real, %)'].iloc[-1]:.2f}%",""),
     ]
-    for col, (label, value, sub, cls) in zip([k1, k2, k3, k4], kpis):
+    for col,(label,value,sub,cls) in zip([k1,k2,k3,k4], kpis):
         col.markdown(f"""
         <div class='kpi-card {cls}'>
             <div class='kpi-label'>{label}</div>
@@ -435,50 +515,39 @@ if st.session_state.page == "welcome":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Historical charts
+    # Charts
     st.markdown("""
     <div class='section-label'>Macro Trend Explorer</div>
     <div class='section-title'>Historical Indicator Charts</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
-
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
     tab_labels = [t.split("(")[0].strip() for t in targets]
     tabs = st.tabs(tab_labels)
     for tab, target in zip(tabs, targets):
         with tab:
             series = df_hist[target]
-            avg    = float(series.mean())
-            fig    = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_hist.index, y=series, mode="lines",
-                line=dict(color="#c9a84c", width=1.5), name=target,
-                fill="tozeroy", fillcolor="rgba(201,168,76,0.06)"
-            ))
-            fig.add_trace(go.Scatter(
-                x=df_hist.index, y=series, mode="markers",
-                marker=dict(size=4, color="#c9a84c", line=dict(color="#09090e", width=1)),
-                showlegend=False
-            ))
+            avg = float(series.mean())
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=df_hist.index, y=series, mode="lines",
+                line=dict(color="#c9a84c",width=1.5), name=target,
+                fill="tozeroy", fillcolor="rgba(201,168,76,0.06)"))
+            fig.add_trace(go.Scatter(x=df_hist.index, y=series, mode="markers",
+                marker=dict(size=4,color="#c9a84c",line=dict(color="#09090e",width=1)),
+                showlegend=False))
             fig.add_hline(y=avg, line_dash="dot", line_color="#2a2d44", line_width=1,
-                          annotation_text=f"  Mean:  {avg:.2f}%",
-                          annotation_font=dict(color="#5a5d7a", size=10, family="IBM Plex Mono"))
-            last_x, last_y = series.index[-1], float(series.iloc[-1])
-            fig.add_trace(go.Scatter(
-                x=[last_x], y=[last_y], mode="markers",
-                marker=dict(size=9, color="#c9a84c", line=dict(color="#fff", width=1.5)),
-                showlegend=False
-            ))
+                annotation_text=f"  Mean:  {avg:.2f}%",
+                annotation_font=dict(color="#5a5d7a",size=10,family="IBM Plex Mono"))
+            fig.add_trace(go.Scatter(x=[series.index[-1]], y=[float(series.iloc[-1])],
+                mode="markers", marker=dict(size=9,color="#c9a84c",
+                line=dict(color="#fff",width=1.5)), showlegend=False))
             fig.update_layout(**plot_theme, height=300)
             st.plotly_chart(fig, use_container_width=True)
-
-            sc1, sc2, sc3, sc4 = st.columns(4)
-            stats = [
-                ("Mean",   f"{series.mean():.2f}%", ""),
-                ("Peak",   f"{series.max():.2f}%",  "accent-red"),
-                ("Trough", f"{series.min():.2f}%",  "accent-green"),
-                ("Latest", f"{series.iloc[-1]:.2f}%", ""),
-            ]
-            for scol, (slabel, sval, scls) in zip([sc1, sc2, sc3, sc4], stats):
+            sc1,sc2,sc3,sc4 = st.columns(4)
+            for scol,(slabel,sval,scls) in zip([sc1,sc2,sc3,sc4],[
+                ("Mean",f"{series.mean():.2f}%",""),
+                ("Peak",f"{series.max():.2f}%","accent-red"),
+                ("Trough",f"{series.min():.2f}%","accent-green"),
+                ("Latest",f"{series.iloc[-1]:.2f}%",""),
+            ]):
                 scol.markdown(f"""
                 <div class='kpi-card {scls}' style='padding:1rem 1.25rem'>
                     <div class='kpi-label'>{slabel}</div>
@@ -487,37 +556,12 @@ if st.session_state.page == "welcome":
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
     st.markdown("<div class='ornament'>── ◆ ──</div>", unsafe_allow_html=True)
-
-    col_l2, col_c2, col_r2 = st.columns([2, 1, 2])
+    col_l2,col_c2,col_r2 = st.columns([2,1,2])
     with col_c2:
         if st.button("Predict Your Simulation  ▶"):
             go_to("simulate")
     st.markdown("<div class='cta-hint'>Proceed to configure your business and run a custom scenario</div>", unsafe_allow_html=True)
-    # ── No simulation yet — show empty state ──────────────────────────────────
-    if st.session_state.prediction_result is None:
-        st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
-        st.markdown("""
-        <div style='
-            text-align: center;
-            padding: 3rem 2rem;
-            border: 1px dashed #2a2d44;
-            border-radius: 4px;
-            margin-top: 1rem;
-        '>
-            <div style='font-size:2rem;margin-bottom:1rem'>📊</div>
-            <div style='font-family:Playfair Display,serif;font-size:1.2rem;color:#fff;margin-bottom:0.5rem'>
-                No Simulation Run Yet
-            </div>
-            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
-            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8'>
-                Configure your business profile above and press<br>
-                <span style='color:#c9a84c'>Run Prediction  ▶</span>  to see results here.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
-
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -525,8 +569,7 @@ if st.session_state.page == "welcome":
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "simulate":
     st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
-
-    col_back, _ = st.columns([1, 5])
+    col_back, _ = st.columns([1,5])
     with col_back:
         if st.button("← Back to Overview"):
             go_to("welcome")
@@ -534,108 +577,163 @@ elif st.session_state.page == "simulate":
     st.markdown("""
     <div class='section-label'>Business Simulation</div>
     <div class='section-title'>Configure Your Scenario</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
 
-    cfg1, cfg2 = st.columns([2, 1])
+    # Onboarding banner
+    if st.session_state.first_visit:
+        st.markdown("""
+        <div style='background:linear-gradient(135deg,rgba(201,168,76,0.08),rgba(201,168,76,0.03));
+        border:1px solid rgba(201,168,76,0.3);border-radius:4px;padding:1.5rem 2rem;margin-bottom:2rem'>
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;letter-spacing:0.2em;
+            text-transform:uppercase;color:#c9a84c;margin-bottom:0.75rem'>Getting Started</div>
+            <div style='font-size:1rem;color:#e2e4f0;line-height:1.7;margin-bottom:0.75rem'>
+            <strong>BizShock</strong> predicts how global commodity price shocks affect your business
+            using a machine learning model trained on 50 years of economic data.</div>
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.72rem;color:#5a5d7a;line-height:1.9'>
+            <span style='color:#c9a84c'>01</span> &nbsp; Select your business type<br>
+            <span style='color:#c9a84c'>02</span> &nbsp; Review commodity cost weights<br>
+            <span style='color:#c9a84c'>03</span> &nbsp; Hit Run Prediction — results in under 3 seconds<br>
+            <span style='color:#c9a84c'>04</span> &nbsp; Download your CSV report or compare scenarios
+            </div>
+        </div>""", unsafe_allow_html=True)
+        if st.button("Got it — hide this guide"):
+            st.session_state.first_visit = False; st.rerun()
+
+    cfg1, cfg2 = st.columns([2,1])
     with cfg1:
         business_type = st.selectbox("Business Type", get_all_profiles(), index=0)
     with cfg2:
-        scenario_name = st.text_input("Scenario Label", value="scenario_01")
+        scenario_name = st.text_input("Scenario Label", value="", placeholder="e.g. oil_spike_jan")
 
     profile = BUSINESS_PROFILES[business_type]
     st.markdown(f"""
     <div style='font-family:IBM Plex Mono,monospace;font-size:0.62rem;color:#5a5d7a;
     margin-top:-0.5rem;margin-bottom:1.5rem;letter-spacing:0.06em'>
-    Profile description:  {profile["description"]}
-    </div>""", unsafe_allow_html=True)
+    Profile:  {profile["description"]}</div>""", unsafe_allow_html=True)
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # Historical replay
+    st.markdown("""
+    <div class='section-label'>Historical Replay</div>
+    <div class='section-title' style='font-size:1.2rem'>Replay a Past Crisis</div>
+    <div class='section-divider'></div>
+    <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;color:#5a5d7a;
+    margin-bottom:1rem;line-height:1.7'>
+    Pre-fill commodity prices from a real historical shock to see how your business would have fared.
+    </div>""", unsafe_allow_html=True)
+
+    replay_cols = st.columns(4)
+    for i,(name,scen) in enumerate(HISTORICAL_SCENARIOS.items()):
+        with replay_cols[i]:
+            st.markdown(f"""
+            <div class='replay-card'>
+                <div style='font-family:IBM Plex Mono,monospace;font-size:0.58rem;
+                letter-spacing:0.12em;text-transform:uppercase;color:#c9a84c;margin-bottom:0.4rem'>{scen["year"]}</div>
+                <div style='font-family:Playfair Display,serif;font-size:0.95rem;color:#fff;margin-bottom:0.4rem'>{name}</div>
+                <div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;color:#5a5d7a;line-height:1.5'>{scen["description"]}</div>
+            </div>""", unsafe_allow_html=True)
+            if st.button(f"Use {scen['year']}", key=f"replay_{i}"):
+                st.session_state.replay_scenario = name; st.rerun()
+
+    if st.session_state.replay_scenario:
+        scen = HISTORICAL_SCENARIOS[st.session_state.replay_scenario]
+        st.markdown(f"""
+        <div style='background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.25);
+        border-radius:3px;padding:0.75rem 1.25rem;margin-top:0.5rem;
+        font-family:IBM Plex Mono,monospace;font-size:0.65rem;color:#c9a84c'>
+        ◆  Replaying:  {st.session_state.replay_scenario}  —  prices from {scen["year"]}
+        </div>""", unsafe_allow_html=True)
+        if st.button("Clear Replay"):
+            st.session_state.replay_scenario = None; st.rerun()
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    # Commodity weights
     st.markdown("""
     <div class='section-label'>Cost Basket</div>
-    <div class='section-title'>Commodity Exposure Weights</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
+    <div class='section-title' style='font-size:1.2rem'>Commodity Exposure Weights</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
 
     if business_type == "🛠 Custom":
-        for i, row in enumerate(st.session_state.custom_commodities):
-            cc1, cc2, cc3 = st.columns([3, 2, 1])
+        for i,row in enumerate(st.session_state.custom_commodities):
+            cc1,cc2,cc3 = st.columns([3,2,1])
             with cc1:
                 name = st.selectbox("Commodity", list(ALL_COMMODITIES.keys()), key=f"name_{i}",
-                                    index=list(ALL_COMMODITIES.keys()).index(row["name"]) if row["name"] in ALL_COMMODITIES else 0)
+                    index=list(ALL_COMMODITIES.keys()).index(row["name"]) if row["name"] in ALL_COMMODITIES else 0)
                 st.session_state.custom_commodities[i]["name"] = name
             with cc2:
                 weight = st.number_input("Weight (%)", 0, 100, row["weight"], key=f"weight_{i}")
                 st.session_state.custom_commodities[i]["weight"] = weight
             with cc3:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("Remove", key=f"remove_{i}") and len(st.session_state.custom_commodities) > 1:
-                    st.session_state.custom_commodities.pop(i)
-                    st.rerun()
+                if st.button("Remove", key=f"remove_{i}") and len(st.session_state.custom_commodities)>1:
+                    st.session_state.custom_commodities.pop(i); st.rerun()
         if st.button("+ Add Commodity"):
-            st.session_state.custom_commodities.append({"name": "Wheat", "weight": 10})
-            st.rerun()
+            st.session_state.custom_commodities.append({"name":"Wheat","weight":10}); st.rerun()
         total_weight = sum(r["weight"] for r in st.session_state.custom_commodities)
-        color = "#3ecf8e" if total_weight == 100 else "#f2655a"
+        color = "#3ecf8e" if total_weight==100 else "#f2655a"
         st.markdown(f"<div style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:{color};margin-top:0.5rem'>Total weight:  {total_weight}%  {'✓  Correct' if total_weight==100 else '—  Must equal 100%'}</div>", unsafe_allow_html=True)
         active_commodities = {}
         for row in st.session_state.custom_commodities:
             com = ALL_COMMODITIES.get(row["name"])
             if com:
-                key = row["name"].upper().replace(" ", "_")
-                active_commodities[key] = {"ticker": com["ticker"], "weight": row["weight"] / 100}
+                key = row["name"].upper().replace(" ","_")
+                active_commodities[key] = {"ticker":com["ticker"],"weight":row["weight"]/100}
     else:
         active_commodities = dict(profile["commodities"])
         wcols = st.columns(len(active_commodities))
-        for i, (commodity, info) in enumerate(active_commodities.items()):
+        for i,(commodity,info) in enumerate(active_commodities.items()):
             with wcols[i]:
-                new_weight = st.number_input(
-                    commodity.replace("_", " ").title(),
-                    0, 100, int(info["weight"] * 100), key=f"w_{commodity}"
-                )
-                active_commodities[commodity]["weight"] = new_weight / 100
+                new_weight = st.number_input(commodity.replace("_"," ").title(),
+                    0, 100, int(info["weight"]*100), key=f"w_{commodity}")
+                active_commodities[commodity]["weight"] = new_weight/100
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # Live prices
     st.markdown("""
     <div class='section-label'>Live Market Data</div>
-    <div class='section-title'>Current Input Commodity Prices</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
+    <div class='section-title' style='font-size:1.2rem'>Current Input Commodity Prices</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
 
     live_prices = {}
+    replay_overrides = HISTORICAL_SCENARIOS.get(
+        st.session_state.replay_scenario or "", {}
+    ).get("overrides", {})
+
     lp_cols = st.columns(len(active_commodities))
-    for i, (commodity, info) in enumerate(active_commodities.items()):
-        price = fetch_live_price(info["ticker"])
+    for i,(commodity,info) in enumerate(active_commodities.items()):
+        price = replay_overrides.get(commodity) or fetch_live_price(info["ticker"])
         live_prices[commodity] = price
-        hist  = historical_means.get(commodity, 0)
+        hist = historical_means.get(commodity, 0)
         if price is None:
-            price_str, chg_str, chg_color = "N / A", "No live data available", "#5a5d7a"
+            price_str, chg_str, chg_color = "N / A", "No live data", "#5a5d7a"
         else:
             price_str = f"${price:,.2f}"
             if hist:
-                chg       = (price - hist) / hist * 100
-                arrow     = "▲" if chg > 0 else "▼"
-                chg_color = "#f2655a" if chg > 5 else "#f0a23a" if chg > 0 else "#3ecf8e"
-                chg_str   = f"{arrow}  {abs(chg):.1f}%  vs  historical avg"
+                chg = (price-hist)/hist*100
+                arrow = "▲" if chg>0 else "▼"
+                chg_color = "#f2655a" if chg>5 else "#f0a23a" if chg>0 else "#3ecf8e"
+                chg_str = f"{arrow}  {abs(chg):.1f}%  vs  historical avg"
             else:
                 chg_str, chg_color = "Baseline unavailable", "#5a5d7a"
+        source = "HISTORICAL REPLAY" if commodity in replay_overrides else "LIVE"
         with lp_cols[i]:
             st.markdown(f"""
             <div class='price-card'>
-                <div class='price-label'>{commodity.replace("_", " ").title()}</div>
+                <div class='price-label'>{commodity.replace("_"," ").title()}</div>
                 <div class='price-value'>{price_str}</div>
                 <div class='price-change' style='color:{chg_color}'>{chg_str}</div>
+                <div style='font-size:0.5rem;color:#2a2d44;margin-top:0.2rem'>{source}</div>
             </div>""", unsafe_allow_html=True)
 
     st.markdown("<br><br>", unsafe_allow_html=True)
-
-    col_l, col_c, col_r = st.columns([2, 1, 2])
+    col_l, col_c, col_r = st.columns([2,1,2])
     with col_c:
         run_btn = st.button("Run Prediction  ▶")
 
-    # ── Empty scenario name check ─────────────────────────────────────────────
+    # Validations
     if run_btn and not scenario_name.strip():
         st.markdown("""
         <div style='background:rgba(240,162,58,0.08);border:1px solid rgba(240,162,58,0.35);
@@ -644,15 +742,11 @@ elif st.session_state.page == "simulate":
             <div style='color:#f0a23a;font-size:0.65rem;letter-spacing:0.18em;
             text-transform:uppercase;margin-bottom:0.35rem'>⚠ Scenario Name Required</div>
             <div style='color:#e2e4f0;font-size:0.85rem;line-height:1.6'>
-                Please enter a name in the <strong>Scenario Label</strong> field before running a prediction.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            Please enter a name in the Scenario Label field.</div>
+        </div>""", unsafe_allow_html=True)
         run_btn = False
 
-    # ── Duplicate scenario name check ─────────────────────────────────────────
-    existing_file = os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json")
-    if run_btn and os.path.exists(existing_file):
+    if run_btn and scenario_name_exists(user["id"], scenario_name):
         st.markdown(f"""
         <div style='background:rgba(242,101,90,0.08);border:1px solid rgba(242,101,90,0.35);
         border-left:3px solid #f2655a;border-radius:3px;padding:1rem 1.5rem;margin-top:1rem;
@@ -660,42 +754,54 @@ elif st.session_state.page == "simulate":
             <div style='color:#f2655a;font-size:0.65rem;letter-spacing:0.18em;
             text-transform:uppercase;margin-bottom:0.35rem'>⚠ Scenario Name Already Exists</div>
             <div style='color:#e2e4f0;font-size:0.85rem;line-height:1.6'>
-                A scenario named <strong>"{scenario_name}"</strong> has already been saved.
-                Please choose a different label and run again.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            You already have a scenario named <strong>"{scenario_name}"</strong>.
+            Please choose a different label.</div>
+        </div>""", unsafe_allow_html=True)
         run_btn = False
 
     if run_btn:
-        input_data = {f: (live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f, 0)) for f in features}
-        input_df   = pd.DataFrame([input_data])[features]
-        prediction = model.predict(input_df)[0]
-        result     = dict(zip(targets, prediction))
-
-        baseline_df = pd.DataFrame([{f: historical_means.get(f, 0) for f in features}])
+        input_data  = {f:(live_prices.get(f) if live_prices.get(f) is not None else historical_means.get(f,0)) for f in features}
+        input_df    = pd.DataFrame([input_data])[features]
+        prediction  = model.predict(input_df)[0]
+        result      = dict(zip(targets, prediction))
+        baseline_df = pd.DataFrame([{f:historical_means.get(f,0) for f in features}])
         baseline    = dict(zip(targets, model.predict(baseline_df)[0]))
-
         cost_impact, breakdown = calculate_cost_impact(active_commodities, live_prices, historical_means)
-        translation            = translate(result, business_type, cost_impact)
+        translation = translate(result, business_type, cost_impact)
 
         st.session_state.prediction_result = {
-            "result": result, "baseline": baseline,
-            "cost_impact": cost_impact, "breakdown": breakdown,
-            "translation": translation, "business_type": business_type,
-            "scenario_name": scenario_name, "live_prices": live_prices,
-            "active_commodities": active_commodities,
+            "result":result, "baseline":baseline, "cost_impact":cost_impact,
+            "breakdown":breakdown, "translation":translation,
+            "business_type":business_type, "scenario_name":scenario_name,
+            "live_prices":live_prices, "active_commodities":active_commodities,
+            "replay":st.session_state.replay_scenario,
         }
 
-        os.makedirs(RESULTS_DIR, exist_ok=True)
-        out = {
-            "business": business_type, "scenario": scenario_name,
-            "live_prices": live_prices, "predictions": result,
-            "baseline": baseline, "cost_impact_pct": cost_impact,
-            "verdict": translation["verdict"][0]
-        }
-        json.dump(out, open(os.path.join(RESULTS_DIR, f"{scenario_name}_prediction.json"), "w"), indent=2)
+        ok, err = save_scenario(
+            user_id=user["id"], scenario_name=scenario_name,
+            business_type=business_type, verdict=translation["verdict"][0],
+            cost_impact=cost_impact, predictions=result, baseline=baseline,
+            live_prices={k:v for k,v in live_prices.items() if v is not None},
+            breakdown=breakdown, replay=st.session_state.replay_scenario,
+        )
+        if not ok:
+            st.warning(f"Prediction ran but could not save: {err}")
         go_to("recommend")
+
+    if st.session_state.prediction_result is None:
+        st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style='text-align:center;padding:3rem 2rem;border:1px dashed #2a2d44;
+        border-radius:4px;margin-top:1rem'>
+            <div style='font-size:2rem;margin-bottom:1rem'>📊</div>
+            <div style='font-family:Playfair Display,serif;font-size:1.2rem;color:#fff;margin-bottom:0.5rem'>
+            No Simulation Run Yet</div>
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
+            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8'>
+            Configure your profile above and press
+            <span style='color:#c9a84c'>Run Prediction  ▶</span>
+            </div>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -707,7 +813,7 @@ elif st.session_state.page == "recommend":
 
     if st.session_state.prediction_result is None:
         st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
-        col_back, _ = st.columns([1, 5])
+        col_back, _ = st.columns([1,5])
         with col_back:
             if st.button("← Back to Simulation"):
                 go_to("simulate")
@@ -726,8 +832,7 @@ elif st.session_state.page == "recommend":
             Head to the Simulation page to generate recommendations.
             </div>
         </div>""", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_l, col_c, col_r = st.columns([2, 1, 2])
+        col_l,col_c,col_r = st.columns([2,1,2])
         with col_c:
             if st.button("Go to Simulation  ▶"):
                 go_to("simulate")
@@ -735,43 +840,10 @@ elif st.session_state.page == "recommend":
         st.stop()
 
     st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
-
-    col_back, _ = st.columns([1, 5])
+    col_back, _ = st.columns([1,5])
     with col_back:
         if st.button("← Back to Simulation"):
             go_to("simulate")
-        st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
-        st.markdown("""
-        <div class='section-label'>Recommendations</div>
-        <div class='section-title'>Strategic Recommendations</div>
-        <div class='section-divider'></div>
-        """, unsafe_allow_html=True)
-        st.markdown("""
-        <div style='
-            text-align: center;
-            padding: 4rem 2rem;
-            border: 1px dashed #2a2d44;
-            border-radius: 4px;
-            margin-top: 1rem;
-        '>
-            <div style='font-size:2.5rem;margin-bottom:1rem'>🔍</div>
-            <div style='font-family:Playfair Display,serif;font-size:1.4rem;color:#fff;margin-bottom:0.75rem'>
-                No Analysis Available
-            </div>
-            <div style='font-family:IBM Plex Mono,monospace;font-size:0.65rem;
-            letter-spacing:0.12em;color:#5a5d7a;line-height:1.8;margin-bottom:2rem'>
-                You have not run a simulation yet.<br>
-                Head to the Simulation page to configure your business and generate recommendations.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_l, col_c, col_r = st.columns([2, 1, 2])
-        with col_c:
-            if st.button("Go to Simulation  ▶"):
-                go_to("simulate")
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.stop()
 
     pr                 = st.session_state.prediction_result
     result             = pr["result"]
@@ -781,22 +853,14 @@ elif st.session_state.page == "recommend":
     translation        = pr["translation"]
     business_type      = pr["business_type"]
     scenario_name      = pr["scenario_name"]
-    live_prices        = pr["live_prices"]
-    active_commodities = pr["active_commodities"]
+    replay_label       = pr.get("replay")
     verdict_text, verdict_desc, verdict_color = translation["verdict"]
 
-    st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
-
-    col_back, _ = st.columns([1, 5])
-    with col_back:
-        if st.button("← Back to Simulation"):
-            go_to("simulate")
-
+    replay_tag = f"&nbsp;&middot;&nbsp; Replay: {replay_label}" if replay_label else ""
     st.markdown(f"""
-    <div class='section-label'>Analysis Complete &nbsp;&middot;&nbsp; {business_type} &nbsp;&middot;&nbsp; {scenario_name}</div>
+    <div class='section-label'>Analysis Complete &nbsp;&middot;&nbsp; {business_type} &nbsp;&middot;&nbsp; {scenario_name}{replay_tag}</div>
     <div class='section-title'>Strategic Recommendations</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
 
     verdict_icon = "🔴" if "Tough" in verdict_text else "🟡" if "Caution" in verdict_text else "🟢"
     st.markdown(f"""
@@ -806,139 +870,304 @@ elif st.session_state.page == "recommend":
             <div class='verdict-title' style='color:{verdict_color}'>{verdict_text}</div>
             <div class='verdict-body'>{verdict_desc}</div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # Predicted KPIs with confidence
     st.markdown("""
     <div class='section-label'>Predicted Outcomes</div>
     <div class='section-title'>Macro Indicator Forecast</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
-
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
     res_cols = st.columns(len(targets))
-    for i, (target, value) in enumerate(result.items()):
-        diff     = value - baseline[target]
-        arrow    = "▲" if diff > 0 else "▼"
-        is_bad   = (diff > 0 and target != "GDP Growth (% Annual)") or (diff < 0 and target == "GDP Growth (% Annual)")
+    for i,(target,value) in enumerate(result.items()):
+        diff = value - baseline[target]
+        arrow = "▲" if diff>0 else "▼"
+        is_bad = (diff>0 and target!="GDP Growth (% Annual)") or (diff<0 and target=="GDP Growth (% Annual)")
         diff_color = "#f2655a" if is_bad else "#3ecf8e"
-        cls      = "accent-red" if is_bad else "accent-green"
+        cls = "accent-red" if is_bad else "accent-green"
+        mae = MAE_VALUES.get(target, 0)
         with res_cols[i]:
             st.markdown(f"""
             <div class='kpi-card {cls}'>
                 <div class='kpi-label'>{target.split("(")[0].strip()}</div>
                 <div class='kpi-value'>{value:.1f}%</div>
                 <div class='kpi-sub' style='color:{diff_color}'>{arrow}  {abs(diff):.2f} pp  vs  baseline</div>
+                <div class='kpi-sub' style='margin-top:0.3rem;color:#3a3d55'>±  {mae:.1f}%  confidence</div>
             </div>""", unsafe_allow_html=True)
+
+    # Confidence ranges expandable
+    with st.expander("View Prediction Confidence Ranges"):
+        rows_html = ""
+        for target, value in result.items():
+            mae = MAE_VALUES.get(target, 0)
+            rows_html += f"""
+            <div style='display:flex;justify-content:space-between;padding:0.5rem 0;
+            border-bottom:1px solid #1e2030;font-family:IBM Plex Mono,monospace;font-size:0.7rem'>
+                <span style='color:#5a5d7a'>{target.split("(")[0].strip()}</span>
+                <span style='color:#e2e4f0'>{value:.1f}%
+                    <span style='color:#3a3d55;font-size:0.62rem'>
+                    &nbsp;({value-mae:.1f}% – {value+mae:.1f}%)
+                    </span>
+                </span>
+            </div>"""
+        st.markdown(f"""
+        <div style='background:#0f1018;border:1px solid #2a2d44;border-radius:4px;padding:1.25rem 1.5rem'>
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.6rem;letter-spacing:0.18em;
+            text-transform:uppercase;color:#c9a84c;margin-bottom:0.75rem'>
+            Prediction Ranges (based on model MAE)</div>
+            {rows_html}
+            <div style='font-family:IBM Plex Mono,monospace;font-size:0.58rem;color:#3a3d55;margin-top:0.75rem'>
+            Ranges derived from Mean Absolute Error validated on held-out data. Not financial advice.
+            </div>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # Chart + breakdown
     ch_left, ch_right = st.columns(2)
     with ch_left:
         st.markdown("""
         <div class='section-label'>Visual Comparison</div>
         <div class='section-title' style='font-size:1.2rem'>Scenario vs Baseline</div>
-        <div class='section-divider'></div>
-        """, unsafe_allow_html=True)
+        <div class='section-divider'></div>""", unsafe_allow_html=True)
         short = [t.split("(")[0].strip() for t in targets]
-        fig   = go.Figure()
-        fig.add_trace(go.Bar(
-            name="Baseline", x=short, y=[baseline[t] for t in targets],
-            marker_color="#1e2030", marker_line_color="#2a2d44", marker_line_width=1
-        ))
-        fig.add_trace(go.Bar(
-            name="Scenario", x=short, y=[result[t] for t in targets],
-            marker_color="#c9a84c", marker_line_color="#c9a84c", marker_line_width=0
-        ))
-        fig.update_layout(**plot_theme, barmode="group", height=280)
+        fig = go.Figure()
+        fig.add_trace(go.Bar(name="Baseline", x=short, y=[baseline[t] for t in targets],
+            marker_color="#1e2030", marker_line_color="#2a2d44", marker_line_width=1))
+        fig.add_trace(go.Bar(name="Scenario", x=short, y=[result[t] for t in targets],
+            marker_color="#c9a84c", marker_line_color="#c9a84c", marker_line_width=0))
+        fig.add_trace(go.Scatter(
+            x=short, y=[result[t] for t in targets], mode="markers", name="± MAE",
+            error_y=dict(type="data", array=[MAE_VALUES.get(t,0) for t in targets],
+                color="#5b8ff9", thickness=1.5, width=6),
+            marker=dict(size=0), showlegend=True))
+        fig.update_layout(**plot_theme, barmode="group", height=300)
         st.plotly_chart(fig, use_container_width=True)
 
     with ch_right:
         st.markdown("""
         <div class='section-label'>Cost Analysis</div>
         <div class='section-title' style='font-size:1.2rem'>Input Cost Impact</div>
-        <div class='section-divider'></div>
-        """, unsafe_allow_html=True)
+        <div class='section-divider'></div>""", unsafe_allow_html=True)
         if breakdown:
             bd_df = pd.DataFrame(breakdown).T.reset_index()
-            bd_df.columns = ["Commodity", "Live Price", "Hist. Avg", "Change %", "Weight", "Impact %"]
-            st.dataframe(
-                bd_df.style.format({
-                    "Live Price": "{:.2f}", "Hist. Avg": "{:.2f}",
-                    "Change %": "{:+.1f}", "Weight": "{:.0%}", "Impact %": "{:+.2f}"
-                }),
-                use_container_width=True, hide_index=True
-            )
-            imp_color = "#f2655a" if cost_impact > 10 else "#f0a23a" if cost_impact > 0 else "#3ecf8e"
+            bd_df.columns = ["Commodity","Live Price","Hist. Avg","Change %","Weight","Impact %"]
+            st.dataframe(bd_df.style.format({
+                "Live Price":"{:.2f}","Hist. Avg":"{:.2f}",
+                "Change %":"{:+.1f}","Weight":"{:.0%}","Impact %":"{:+.2f}"}),
+                use_container_width=True, hide_index=True)
+            imp_color = "#f2655a" if cost_impact>10 else "#f0a23a" if cost_impact>0 else "#3ecf8e"
             st.markdown(f"""
             <div style='font-family:IBM Plex Mono,monospace;font-size:0.72rem;
             color:{imp_color};margin-top:0.75rem;letter-spacing:0.06em'>
-            Total Input Cost Impact:  {cost_impact:+.1f}%
-            </div>""", unsafe_allow_html=True)
+            Total Input Cost Impact:  {cost_impact:+.1f}%</div>""", unsafe_allow_html=True)
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # Insights + Actions
     col_ins, col_act = st.columns(2)
     with col_ins:
         st.markdown("""
         <div class='section-label'>Market Signals</div>
         <div class='section-title' style='font-size:1.2rem'>Key Risk Indicators</div>
-        <div class='section-divider'></div>
-        """, unsafe_allow_html=True)
+        <div class='section-divider'></div>""", unsafe_allow_html=True)
         for insight in translation["insights"]:
-            tag     = "RISK" if "🔴" in insight else "WATCH" if "🟡" in insight else "STABLE"
+            tag = "RISK" if "🔴" in insight else "WATCH" if "🟡" in insight else "STABLE"
             tag_cls = "tag-risk" if "🔴" in insight else "tag-watch" if "🟡" in insight else "tag-stable"
-            text    = insight[2:].strip().replace("**", "")
+            text = insight[2:].strip().replace("**","")
             st.markdown(f"""
             <div class='insight-row'>
-                <span class='signal-tag {tag_cls}'>{tag}</span>
-                {text}
+                <span class='signal-tag {tag_cls}'>{tag}</span>{text}
             </div>""", unsafe_allow_html=True)
 
     with col_act:
         st.markdown("""
         <div class='section-label'>Action Plan</div>
         <div class='section-title' style='font-size:1.2rem'>Recommended Actions</div>
-        <div class='section-divider'></div>
-        """, unsafe_allow_html=True)
-        for i, action in enumerate(translation["actions"], 1):
+        <div class='section-divider'></div>""", unsafe_allow_html=True)
+        for i,action in enumerate(translation["actions"],1):
             text = action[2:].strip()
             st.markdown(f"""
             <div class='action-row'>
-                <span class='action-num'>{i:02d}</span>
-                {text}
+                <span class='action-num'>{i:02d}</span>{text}
             </div>""", unsafe_allow_html=True)
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
+    # CSV Export
     st.markdown("""
-    <div class='section-label'>Scenario History</div>
+    <div class='section-label'>Export</div>
+    <div class='section-title' style='font-size:1.2rem'>Download Data</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+    csv_rows = [{"Indicator":t,"Predicted":result[t],"Baseline":baseline[t],
+                 "Difference":result[t]-baseline[t],"MAE":MAE_VALUES.get(t,0)} for t in targets]
+    csv_bytes = pd.DataFrame(csv_rows).to_csv(index=False).encode()
+    col_e1, col_e2 = st.columns([1,4])
+    with col_e1:
+        st.download_button(
+            label="⬇  Download CSV",
+            data=csv_bytes,
+            file_name=f"bizshock_{scenario_name}.csv",
+            mime="text/csv",
+        )
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    # Scenario history from DB
+    st.markdown("""
+    <div class='section-label'>Your Scenario History</div>
     <div class='section-title'>Previous Simulations</div>
-    <div class='section-divider'></div>
-    """, unsafe_allow_html=True)
-    files = [f for f in os.listdir(RESULTS_DIR) if f.endswith("_prediction.json")] if os.path.exists(RESULTS_DIR) else []
-    if files:
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+
+    user_scenarios = get_user_scenarios(user["id"])
+    if user_scenarios:
         rows = []
-        for f in files:
-            data = json.load(open(os.path.join(RESULTS_DIR, f)))
-            row  = {
-                "Scenario": data.get("scenario", ""), "Business": data.get("business", ""),
-                "Verdict":  data.get("verdict",  ""), "Cost Δ %": data.get("cost_impact_pct", 0)
+        for s in user_scenarios:
+            preds = s.get("predictions") or {}
+            row = {
+                "Scenario": s["scenario_name"],
+                "Business": s["business_type"],
+                "Verdict":  s["verdict"],
+                "Cost Δ %": s["cost_impact"],
+                "Date":     str(s["created_at"])[:10],
             }
-            row.update(data.get("predictions", {}))
+            row.update({k.split("(")[0].strip(): f"{v:.2f}%" for k,v in preds.items()})
             rows.append(row)
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        with st.expander("Delete a Scenario"):
+            names = [s["scenario_name"] for s in user_scenarios]
+            to_delete = st.selectbox("Select scenario to delete", names, key="del_scenario")
+            if st.button("Delete Selected Scenario"):
+                delete_scenario(user["id"], to_delete)
+                st.success(f"Deleted '{to_delete}'")
+                st.rerun()
     else:
-        st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#3a3d55;padding:1.25rem 0'>No prior simulations saved.</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-family:IBM Plex Mono,monospace;font-size:0.7rem;color:#3a3d55;padding:1.25rem 0'>No scenarios saved yet.</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
     st.markdown("<div class='ornament'>── ◆ ──</div>", unsafe_allow_html=True)
 
-    col_l, col_c, col_r = st.columns([2, 1, 2])
+    col_l,col_c,col_r = st.columns([2,1,2])
     with col_c:
         if st.button("Run Another Simulation  ▶"):
             st.session_state.prediction_result = None
             go_to("simulate")
     st.markdown("<div class='cta-hint'>Return to configure a new business scenario</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 4 — MODEL ACCURACY
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "accuracy":
+    st.markdown("<div class='page-wrapper'>", unsafe_allow_html=True)
+    col_back, _ = st.columns([1,5])
+    with col_back:
+        if st.button("← Back to Overview"):
+            go_to("welcome")
+
+    st.markdown("""
+    <div class='section-label'>Model Evaluation</div>
+    <div class='section-title'>Prediction Accuracy Report</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+
+    X = df_hist[features]
+
+    # Per-target metrics
+    st.markdown("""
+    <div class='section-label'>Per Indicator Metrics</div>
+    <div class='section-title' style='font-size:1.2rem'>R²  ·  MAE  ·  RMSE</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+    metric_cols = st.columns(len(targets))
+    for i,target in enumerate(targets):
+        y_true = df_hist[target]
+        y_pred = model.predict(X)[:,i]
+        r2   = r2_score(y_true, y_pred)
+        mae  = mean_absolute_error(y_true, y_pred)
+        rmse = mean_squared_error(y_true, y_pred)**0.5
+        color = "#3ecf8e" if r2>0.85 else "#f0a23a" if r2>0.60 else "#f2655a"
+        cls   = "accent-green" if r2>0.85 else "accent-amber" if r2>0.60 else "accent-red"
+        with metric_cols[i]:
+            st.markdown(f"""
+            <div class='kpi-card {cls}'>
+                <div class='kpi-label'>{target.split("(")[0].strip()}</div>
+                <div class='kpi-value' style='color:{color}'>{r2:.3f}</div>
+                <div class='kpi-sub'>R²  Score</div>
+                <br>
+                <div class='kpi-sub'>MAE:  {mae:.3f}%</div>
+                <div class='kpi-sub'>RMSE: {rmse:.3f}%</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    # Actual vs Predicted
+    st.markdown("""
+    <div class='section-label'>Visual Accuracy</div>
+    <div class='section-title' style='font-size:1.2rem'>Actual vs Predicted</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+    tab_labels = [t.split("(")[0].strip() for t in targets]
+    acc_tabs = st.tabs(tab_labels)
+    for tab,target in zip(acc_tabs,targets):
+        with tab:
+            y_true = df_hist[target].values
+            y_pred = model.predict(X)[:,targets.index(target)]
+            years  = df_hist.index
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=years, y=y_true, mode="lines+markers",
+                name="Actual", line=dict(color="#c9a84c",width=2), marker=dict(size=5)))
+            fig.add_trace(go.Scatter(x=years, y=y_pred, mode="lines+markers",
+                name="Predicted", line=dict(color="#3ecf8e",width=2,dash="dot"),
+                marker=dict(size=5)))
+            fig.update_layout(**plot_theme, height=300)
+            st.plotly_chart(fig, use_container_width=True)
+            residuals = np.array(y_true) - np.array(y_pred)
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(x=list(years), y=residuals,
+                marker_color=["#f2655a" if r<0 else "#3ecf8e" for r in residuals],
+                name="Residual"))
+            fig2.add_hline(y=0, line_color="#2a2d44", line_width=1)
+            fig2.update_layout(**plot_theme, height=180,
+                title_text="Residuals  (Actual − Predicted)")
+            st.plotly_chart(fig2, use_container_width=True)
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    # Cross validation
+    st.markdown("""
+    <div class='section-label'>Robustness Check</div>
+    <div class='section-title' style='font-size:1.2rem'>5-Fold Cross Validation</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+    cv_cols = st.columns(len(targets))
+    for i,target in enumerate(targets):
+        scores = cross_val_score(model, X, df_hist[target], cv=5, scoring="r2")
+        mean_r2, std_r2 = scores.mean(), scores.std()
+        color = "#3ecf8e" if mean_r2>0.75 else "#f0a23a" if mean_r2>0.50 else "#f2655a"
+        cls   = "accent-green" if mean_r2>0.75 else "accent-amber" if mean_r2>0.50 else "accent-red"
+        with cv_cols[i]:
+            st.markdown(f"""
+            <div class='kpi-card {cls}'>
+                <div class='kpi-label'>{target.split("(")[0].strip()}</div>
+                <div class='kpi-value' style='color:{color}'>{mean_r2:.3f}</div>
+                <div class='kpi-sub'>Mean CV R²</div>
+                <div class='kpi-sub' style='margin-top:0.3rem'>±  {std_r2:.3f}  std dev</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
+
+    # Feature importance
+    st.markdown("""
+    <div class='section-label'>Driver Analysis</div>
+    <div class='section-title' style='font-size:1.2rem'>Feature Importance</div>
+    <div class='section-divider'></div>""", unsafe_allow_html=True)
+    importance = model.feature_importances_
+    fi_df = pd.DataFrame({"Feature":features,"Importance":importance}).sort_values("Importance",ascending=True)
+    fig = go.Figure(go.Bar(
+        x=fi_df["Importance"], y=fi_df["Feature"], orientation="h",
+        marker=dict(color=fi_df["Importance"],
+            colorscale=[[0,"#1e2030"],[1,"#c9a84c"]])
+    ))
+    fig.update_layout(**plot_theme, height=350)
+    st.plotly_chart(fig, use_container_width=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
