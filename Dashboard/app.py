@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import yfinance as yf
+from pdf_export import generate_pdf
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import cross_val_score
 
@@ -995,16 +996,31 @@ elif st.session_state.page == "recommend":
 
     st.markdown("<div class='gold-rule'></div>", unsafe_allow_html=True)
 
-    # CSV Export
+    # Export — PDF + CSV
     st.markdown("""
     <div class='section-label'>Export</div>
-    <div class='section-title' style='font-size:1.2rem'>Download Data</div>
+    <div class='section-title' style='font-size:1.2rem'>Download Your Report</div>
     <div class='section-divider'></div>""", unsafe_allow_html=True)
-    csv_rows = [{"Indicator":t,"Predicted":result[t],"Baseline":baseline[t],
-                 "Difference":result[t]-baseline[t],"MAE":MAE_VALUES.get(t,0)} for t in targets]
+
+    csv_rows  = [{"Indicator":t,"Predicted":result[t],"Baseline":baseline[t],
+                  "Difference":result[t]-baseline[t],"MAE":MAE_VALUES.get(t,0)} for t in targets]
     csv_bytes = pd.DataFrame(csv_rows).to_csv(index=False).encode()
-    col_e1, col_e2 = st.columns([1,4])
+
+    col_e1, col_e2, col_e3 = st.columns([1,1,3])
+
     with col_e1:
+        try:
+            pdf_bytes = generate_pdf(pr, MAE_VALUES)
+            st.download_button(
+                label="⬇  Download PDF",
+                data=pdf_bytes,
+                file_name=f"bizshock_{scenario_name}.pdf",
+                mime="application/pdf",
+            )
+        except Exception as e:
+            st.error(f"PDF error: {e}")
+
+    with col_e2:
         st.download_button(
             label="⬇  Download CSV",
             data=csv_bytes,
