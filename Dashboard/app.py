@@ -9,6 +9,7 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import cross_val_score
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.dirname(__file__))  # so db.py and auth.py are found
 from business_profiles import BUSINESS_PROFILES, ALL_COMMODITIES, get_all_profiles
 from business_translator import translate, calculate_cost_impact
 from db import init_db, save_scenario, get_user_scenarios, scenario_name_exists, delete_scenario
