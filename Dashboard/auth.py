@@ -5,10 +5,27 @@ Signup, login, JWT token creation and verification.
 import os
 import bcrypt
 import jwt
+import importlib.util
+import pathlib
 from datetime import datetime, timedelta
-from db import create_user, get_user_by_email, get_user_by_id
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "bizshock_secret_key_Saumya@536_dva")
+# ── Load db.py directly by file path ─────────────────────────────────────────
+def _load_db():
+    here = pathlib.Path(__file__).parent
+    for candidate in [here / "db.py", here.parent / "db.py"]:
+        if candidate.exists():
+            spec = importlib.util.spec_from_file_location("db", candidate)
+            mod  = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod
+    raise ImportError("Cannot find db.py")
+
+_db              = _load_db()
+create_user      = _db.create_user
+get_user_by_email = _db.get_user_by_email
+get_user_by_id   = _db.get_user_by_id
+
+SECRET_KEY        = os.environ.get("SECRET_KEY", "bizshock_secret_key_Saumya@536_dva")
 TOKEN_EXPIRY_DAYS = 7
 
 # ── Password ──────────────────────────────────────────────────────────────────
@@ -30,7 +47,6 @@ def create_token(user_id: int) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
 def verify_token(token: str):
-    """Returns user_id int or None if invalid/expired."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload.get("user_id")
@@ -41,11 +57,6 @@ def verify_token(token: str):
 
 # ── Signup ────────────────────────────────────────────────────────────────────
 def signup(email, password, full_name, business_name):
-    """
-    Returns (token, user_dict, error_str)
-    On success: (token, user, None)
-    On failure: (None, None, "error message")
-    """
     if not email or not password:
         return None, None, "Email and password are required."
     if len(password) < 8:
@@ -61,15 +72,12 @@ def signup(email, password, full_name, business_name):
     if err:
         return None, None, f"Signup failed: {err}"
 
-    user = get_user_by_id(user_id)
+    user  = get_user_by_id(user_id)
     token = create_token(user_id)
     return token, user, None
 
 # ── Login ─────────────────────────────────────────────────────────────────────
 def login(email, password):
-    """
-    Returns (token, user_dict, error_str)
-    """
     if not email or not password:
         return None, None, "Email and password are required."
 
@@ -85,7 +93,6 @@ def login(email, password):
 
 # ── Session restore ───────────────────────────────────────────────────────────
 def get_user_from_token(token: str):
-    """Given a stored JWT, return the user dict or None."""
     if not token:
         return None
     user_id = verify_token(token)

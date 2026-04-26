@@ -12,8 +12,30 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.dirname(__file__))  # so db.py and auth.py are found
 from business_profiles import BUSINESS_PROFILES, ALL_COMMODITIES, get_all_profiles
 from business_translator import translate, calculate_cost_impact
-from db import init_db, save_scenario, get_user_scenarios, scenario_name_exists, delete_scenario
-from auth import signup, login, get_user_from_token
+import importlib.util, pathlib
+
+def _load(name):
+    here = pathlib.Path(__file__).parent
+    for candidate in [here / f"{name}.py", here.parent / f"{name}.py"]:
+        if candidate.exists():
+            spec = importlib.util.spec_from_file_location(name, candidate)
+            mod  = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod
+    raise ImportError(f"Cannot find {name}.py anywhere")
+
+_db   = _load("db")
+_auth = _load("auth")
+
+init_db               = _db.init_db
+save_scenario         = _db.save_scenario
+get_user_scenarios    = _db.get_user_scenarios
+scenario_name_exists  = _db.scenario_name_exists
+delete_scenario       = _db.delete_scenario
+
+signup               = _auth.signup
+login                = _auth.login
+get_user_from_token  = _auth.get_user_from_token
 
 DATA_DIR    = os.path.join(os.path.dirname(__file__), "..", "data")
 MODEL_DIR   = os.path.join(os.path.dirname(__file__), "..", "models")
