@@ -9,10 +9,13 @@ import psycopg2.extras
 from datetime import datetime
 
 # ── Connection ────────────────────────────────────────────────────────────────
-DB_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://postgres:bizshock_secret_key_Saumya@536_dva@db.oqctdnwbahyjintqxvks.supabase.co:5432/postgres"
-)
+DB_URL = os.environ.get("DATABASE_URL")
+
+if not DB_URL:
+    raise RuntimeError(
+        "DATABASE_URL environment variable is not set. "
+        "Add it in Render → Environment tab."
+    )
 
 def get_conn():
     return psycopg2.connect(DB_URL, sslmode="require")
