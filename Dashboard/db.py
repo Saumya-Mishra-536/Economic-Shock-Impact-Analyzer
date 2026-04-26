@@ -1,57 +1,50 @@
 """
-BizShock — Database Layer (Supabase PostgreSQL)
-All DB operations in one place. Never import credentials anywhere else.
+BizShock — Database Layer (SQLite)
+No external connection needed. Runs entirely on Render's disk.
 """
 import os
 import json
-import psycopg2
-import psycopg2.extras
+import sqlite3
 from datetime import datetime
 
-# ── Connection ────────────────────────────────────────────────────────────────
-DB_URL = os.environ.get("DATABASE_URL")
-
-if not DB_URL:
-    raise RuntimeError(
-        "DATABASE_URL environment variable is not set. "
-        "Add it in Render → Environment tab."
-    )
+DB_PATH = os.path.join(os.path.dirname(__file__), "bizshock.db")
 
 def get_conn():
-    return psycopg2.connect(DB_URL, sslmode="require")
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# ── Schema bootstrap — run once on startup ────────────────────────────────────
+# ── Schema bootstrap ──────────────────────────────────────────────────────────
 def init_db():
     conn = get_conn()
     cur  = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id            SERIAL PRIMARY KEY,
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
             email         TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             full_name     TEXT,
             business_name TEXT,
-            created_at    TIMESTAMP DEFAULT NOW()
-        );
+            created_at    TEXT DEFAULT (datetime('now'))
+        )
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS scenarios (
-            id            SERIAL PRIMARY KEY,
-            user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id       INTEGER NOT NULL REFERENCES users(id),
             scenario_name TEXT NOT NULL,
             business_type TEXT,
             verdict       TEXT,
             cost_impact   REAL,
-            predictions   JSONB,
-            baseline      JSONB,
-            live_prices   JSONB,
-            breakdown     JSONB,
+            predictions   TEXT,
+            baseline      TEXT,
+            live_prices   TEXT,
+            breakdown     TEXT,
             replay        TEXT,
-            created_at    TIMESTAMP DEFAULT NOW()
-        );
+            created_at    TEXT DEFAULT (datetime('now'))
+        )
     """)
     conn.commit()
-    cur.close()
     conn.close()
 
 # ── User operations ───────────────────────────────────────────────────────────
@@ -61,39 +54,37 @@ def create_user(email, password_hash, full_name, business_name):
         cur  = conn.cursor()
         cur.execute("""
             INSERT INTO users (email, password_hash, full_name, business_name)
-            VALUES (%s, %s, %s, %s) RETURNING id
+            VALUES (?, ?, ?, ?)
         """, (email.lower().strip(), password_hash, full_name, business_name))
-        user_id = cur.fetchone()[0]
+        user_id = cur.lastrowid
         conn.commit()
-        cur.close()
         conn.close()
         return user_id, None
-    except psycopg2.errors.UniqueViolation:
+    except sqlite3.IntegrityError:
         return None, "email_taken"
     except Exception as e:
         return None, str(e)
 
 def get_user_by_email(email):
     conn = get_conn()
-    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM users WHERE email = %s", (email.lower().strip(),))
-    user = cur.fetchone()
-    cur.close()
+    cur  = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),))
+    row = cur.fetchone()
     conn.close()
-    return dict(user) if user else None
+    return dict(row) if row else None
 
 def get_user_by_id(user_id):
     conn = get_conn()
-    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-    user = cur.fetchone()
-    cur.close()
+    cur  = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    row = cur.fetchone()
     conn.close()
-    return dict(user) if user else None
+    return dict(row) if row else None
 
 # ── Scenario operations ───────────────────────────────────────────────────────
 def save_scenario(user_id, scenario_name, business_type, verdict,
-                  cost_impact, predictions, baseline, live_prices, breakdown, replay=None):
+                  cost_impact, predictions, baseline, live_prices,
+                  breakdown, replay=None):
     try:
         conn = get_conn()
         cur  = conn.cursor()
@@ -101,14 +92,13 @@ def save_scenario(user_id, scenario_name, business_type, verdict,
             INSERT INTO scenarios
             (user_id, scenario_name, business_type, verdict, cost_impact,
              predictions, baseline, live_prices, breakdown, replay)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id, scenario_name, business_type, verdict, cost_impact,
             json.dumps(predictions), json.dumps(baseline),
             json.dumps(live_prices), json.dumps(breakdown), replay
         ))
         conn.commit()
-        cur.close()
         conn.close()
         return True, None
     except Exception as e:
@@ -119,35 +109,38 @@ def scenario_name_exists(user_id, scenario_name):
     cur  = conn.cursor()
     cur.execute("""
         SELECT 1 FROM scenarios
-        WHERE user_id = %s AND scenario_name = %s
+        WHERE user_id = ? AND scenario_name = ?
     """, (user_id, scenario_name))
     exists = cur.fetchone() is not None
-    cur.close()
     conn.close()
     return exists
 
 def get_user_scenarios(user_id):
     conn = get_conn()
-    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur  = conn.cursor()
     cur.execute("""
         SELECT scenario_name, business_type, verdict, cost_impact,
                predictions, created_at
         FROM scenarios
-        WHERE user_id = %s
+        WHERE user_id = ?
         ORDER BY created_at DESC
     """, (user_id,))
     rows = cur.fetchall()
-    cur.close()
     conn.close()
-    return [dict(r) for r in rows]
+    result = []
+    for r in rows:
+        d = dict(r)
+        if d.get("predictions"):
+            d["predictions"] = json.loads(d["predictions"])
+        result.append(d)
+    return result
 
 def delete_scenario(user_id, scenario_name):
     conn = get_conn()
     cur  = conn.cursor()
     cur.execute("""
         DELETE FROM scenarios
-        WHERE user_id = %s AND scenario_name = %s
+        WHERE user_id = ? AND scenario_name = ?
     """, (user_id, scenario_name))
     conn.commit()
-    cur.close()
     conn.close()
