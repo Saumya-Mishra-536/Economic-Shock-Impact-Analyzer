@@ -198,64 +198,7 @@ hr { border-color: var(--border) !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── VIDEO BACKGROUND ─────────────────────────────────────────────────────────
-def add_video_background():
-    import base64
-    video_path = os.path.join(os.path.dirname(__file__), "bg.mp4")
-    if not os.path.exists(video_path):
-        return
-    with open(video_path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-    st.markdown(f"""
-    <style>
-    .video-bg-wrap {{
-        position: fixed;
-        inset: 0;
-        z-index: 0;
-        overflow: hidden;
-        pointer-events: none;
-    }}
-    .video-bg-wrap video {{
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        min-width: 100vw; min-height: 100vh;
-        width: auto; height: auto;
-        object-fit: cover;
-        opacity: 0.22;
-        filter: saturate(0.5) brightness(0.65) hue-rotate(5deg);
-    }}
-    .video-bg-overlay {{
-        position: fixed;
-        inset: 0;
-        z-index: 1;
-        pointer-events: none;
-        background:
-            linear-gradient(180deg,
-                rgba(9,9,14,0.80) 0%,
-                rgba(9,9,14,0.50) 35%,
-                rgba(9,9,14,0.50) 65%,
-                rgba(9,9,14,0.88) 100%),
-            radial-gradient(ellipse 80% 60% at 50% 50%,
-                transparent 30%, rgba(9,9,14,0.55) 100%);
-    }}
-    /* lift all UI above video layers */
-    .navbar,
-    .page-wrapper,
-    [data-testid="stAppViewContainer"] > section > div {{
-        position: relative;
-        z-index: 2;
-    }}
-    </style>
-    <div class="video-bg-wrap">
-        <video autoplay muted loop playsinline>
-            <source src="data:video/mp4;base64,{b64}" type="video/mp4">
-        </video>
-    </div>
-    <div class="video-bg-overlay"></div>
-    """, unsafe_allow_html=True)
 
-add_video_background()
 
 # ── LOAD ─────────────────────────────────────────────────────────────────────
 @st.cache_resource
