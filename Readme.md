@@ -25,7 +25,7 @@ Deployed Link- https://economic-shock-impact-analyzer-1.onrender.com
 
 ---
 
-## 🔍 Overview
+##  Overview
 
 The **Economic Shock Impact Analyzer** is an end-to-end AI simulation tool that models how global commodity shocks — oil price spikes, food price collapses, metal price surges — ripple through macroeconomic indicators like GDP growth, inflation, and unemployment, with a focus on **India and emerging economies**.
 
@@ -39,43 +39,43 @@ The output isn't a single answer — it's a **probability distribution** of outc
 
 ---
 
-## 🎯 Who Is It For
+##  Who Is It For
 
 | Persona | Use Case |
 |---|---|
-| 💼 Strategy & Finance Teams | Stress-test revenue forecasts under macro scenarios |
-| 📦 Policy Analysts | Understand sectoral sensitivity to global commodity cycles |
-| 🎓 MBA / Economics Students | Applied macro-business analysis for portfolios |
-| 📈 Financial Analysts | Complement DCF models with probabilistic scenario analysis |
+| Strategy & Finance Teams | Stress-test revenue forecasts under macro scenarios |
+| Policy Analysts | Understand sectoral sensitivity to global commodity cycles |
+| MBA / Economics Students | Applied macro-business analysis for portfolios |
+| Financial Analysts | Complement DCF models with probabilistic scenario analysis |
 
 
 
-## 🌍 Why This Matters
+##  Why This Matters
 
 Global economies are highly sensitive to commodity shocks:
 
-- 🛢️ Oil spikes → Inflation surges, growth slows  
-- 🌾 Food shocks → Social + policy instability  
-- 🏗 Metals surge → Manufacturing cost pressure  
+-  Oil spikes → Inflation surges, growth slows  
+-  Food shocks → Social + policy instability  
+-  Metals surge → Manufacturing cost pressure  
 
 Traditional models give **single forecasts** — but real-world outcomes are uncertain.
 
 This tool embraces uncertainty by providing:
-- 📉 Downside risk (worst-case scenarios)
-- 📈 Upside potential (best-case outcomes)
-- 🎯 Most probable macro trajectory
+-  Downside risk (worst-case scenarios)
+-  Upside potential (best-case outcomes)
+-  Most probable macro trajectory
 
 👉 Making it useful for **strategy, policy, and investment decisions**
 
 ---
 
-## 🚀 Live Demo
+## Live Demo
 
-> 🌐 **[Launch Dashboard →](https://your-app.streamlit.app)** *(deploy link after Streamlit Cloud setup)*
+>  **[Launch Dashboard →](https://your-app.streamlit.app)** *(deploy link after Streamlit Cloud setup)*
 
 ---
 
-## ✨ Features
+##  Features
 
 - **Dual dataset pipeline** — combines commodity price shocks (AlphaVantage) with macro impact indicators (World Bank) for a full cause-effect model
 - **Trained ML model** — Random Forest / Gradient Boosting regression predicts macro impact (GDP growth, inflation) from commodity shock inputs
@@ -86,11 +86,11 @@ This tool embraces uncertainty by providing:
 
 ---
 
-## 📦 Datasets
+##  Datasets
 
 This project uses **two Kaggle datasets** that together form a complete shock → impact pipeline:
 
-### 1. 🛢️ Commodity Prices Dataset *(Shock Input)*
+### 1.  Commodity Prices Dataset *(Shock Input)*
 **Source:** AlphaVantage via Kaggle
 **Coverage:** January 1980 – April 2023 (monthly)
 
@@ -110,7 +110,7 @@ This project uses **two Kaggle datasets** that together form a complete shock �
 
 ---
 
-### 2. 🌍 Global Economic Indicators Dataset *(Shock Impact / Output)*
+### 2.  Global Economic Indicators Dataset *(Shock Impact / Output)*
 **Source:** World Bank via Kaggle
 **Coverage:** 2010–2025 (annual, 100+ countries)
 
@@ -129,7 +129,7 @@ This project uses **two Kaggle datasets** that together form a complete shock �
 
 ---
 
-### 🔗 How the Datasets Connect
+### How the Datasets Connect
 
 ```
 Commodity Price Shock        →    Macroeconomic Impact
@@ -145,7 +145,7 @@ Merged working range: 2010–2023 (13 years, resampled to annual)
 
 ---
 
-## 🏗 Project Architecture
+##  Project Architecture
 
 ```
 economic-shock-analyzer/
@@ -189,7 +189,7 @@ macro_indicators.csv ──┘           │
 
 ---
 
-## 🧰 Tech Stack
+##  Tech Stack
 
 | Layer | Tool | Purpose |
 |---|---|---|
@@ -202,7 +202,7 @@ macro_indicators.csv ──┘           │
 
 ---
 
-## ⚙️ Setup & Installation
+##  Setup & Installation
 
 ### Prerequisites
 - Python 3.10 or higher
@@ -305,10 +305,10 @@ The model learns how commodity price changes have historically transmitted into 
 - Samples 1,000+ random combinations of commodity price shocks (drawn from calibrated distributions)
 - Applies the trained ML model to each scenario
 - Aggregates results into:
-  - 📈 Best case (95th percentile)
-  - 📉 Worst case (5th percentile)
-  - 🎯 Most likely outcome (median)
-  - ⚠️ Risk Score (based on output variance)
+  -  Best case (95th percentile)
+  -  Worst case (5th percentile)
+  -  Most likely outcome (median)
+  -  Risk Score (based on output variance)
 
 ### Phase 4 — Dashboard
 
@@ -323,7 +323,7 @@ The model learns how commodity price changes have historically transmitted into 
 
 ---
 
-## 🗺 Roadmap
+##  Roadmap
 
 - [x] Commodity price data pipeline (AlphaVantage, 1980–2023)
 - [x] World Bank macro indicators integration (2010–2025)
