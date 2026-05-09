@@ -1,4 +1,4 @@
-# 📉 Economic Shock Impact Analyzer
+#  Economic Shock Impact Analyzer
 Deployed Link- https://economic-shock-impact-analyzer-1.onrender.com
 ### ML-Powered Business Simulation with Monte Carlo Analysis
 
