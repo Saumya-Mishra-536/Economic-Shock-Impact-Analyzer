@@ -7,7 +7,7 @@ Deployed Link- https://economic-shock-impact-analyzer-1.onrender.com
 
 ---
 
-## 🧭 Table of Contents
+##  Table of Contents
 
 - [Overview](#-overview)
 - [Who Is It For](#-who-is-it-for)
